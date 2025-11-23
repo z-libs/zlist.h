@@ -61,7 +61,7 @@ Include your **registry header** (`my_lists.h`), not `zlist.h`.
 int main(void)
 {
     // Initialize (struct is on stack, nodes are malloc'd).
-    list_Int nums = list_init(Int);
+    list_int nums = list_init(int);
 
     // Push values.
     list_push_back(&nums, 10);
