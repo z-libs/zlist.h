@@ -128,6 +128,8 @@ By default, `zlist.h` uses the standard C library functions (`malloc`, `calloc`,
 
 However, you can override these to use your own memory subsystem (e.g., **Memory Arenas**, **Pools**, or **Debug Allocators**).
 
+### First Option: Global Override (Recommended)
+
 To use a custom allocator, define the `Z_` macros **inside your registry header**, immediately before including `zlist.h`.
 
 **Example: my_lists.h**
@@ -140,6 +142,7 @@ To use a custom allocator, define the `Z_` macros **inside your registry header*
 #include "my_memory_system.h"
 
 // IMPORTANT: Override all four to prevent mixing allocators.
+//            This applies to all the z-libs.
 #define Z_MALLOC(sz)      my_custom_alloc(sz)
 #define Z_CALLOC(n, sz)   my_custom_calloc(n, sz)
 #define Z_REALLOC(p, sz)  my_custom_realloc(p, sz)
@@ -149,18 +152,26 @@ To use a custom allocator, define the `Z_` macros **inside your registry header*
 // Then include the library.
 #include "zlist.h"
 
-typedef struct { float x, y; } Point;
+// ... Register types ...
 
-#define REGISTER_TYPES(X) \
-    X(int, Int)           \
-    X(Point, Point)
-
-REGISTER_TYPES(DEFINE_LIST_TYPE)
 
 #endif
 ```
 
 > **Note:** You **must** override **all four macros** (`MALLOC`, `CALLOC`, `REALLOC`, `FREE`) if you override one, to ensure consistency.
+
+### Second Option: Library-Specific Override (Advanced)
+
+If you need different allocators for different containers (e.g., an Arena for Lists but the Heap for Vectors), you can use the library-specific macros. These take priority over the global `Z_` macros.
+
+```c
+// Example: Lists use an Arena, everything else uses standard malloc.
+#define Z_LIST_MALLOC(sz)    arena_alloc(my_arena, sz)
+#define Z_LIST_FREE(p)       /* no-op for linear arena */
+
+#include "zlist.h"
+#include "zvec.h" // zvec will still use standard malloc!
+```
 
 ## Notes
 
