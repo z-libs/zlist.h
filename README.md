@@ -124,34 +124,40 @@ int main(void)
 
 ## Memory Management
 
-By default, `zvec` uses the standard C library functions (`malloc`, `calloc`, `realloc`, `free`).
+By default, `zlist.h` uses the standard C library functions (`malloc`, `calloc`, `realloc`, `free`).
 
-However, you can override these to use your own memory subsystem (e.g., **Memory Arenas**, **Pools**, or **Debug Allocators**). To do this, simply define the `Z_` macros **before** including your registry header.
+However, you can override these to use your own memory subsystem (e.g., **Memory Arenas**, **Pools**, or **Debug Allocators**).
 
-**Example: Using a Custom Allocator**
+To use a custom allocator, define the `Z_` macros **inside your registry header**, immediately before including `zlist.h`.
+
+**Example: my_lists.h**
 
 ```c
-#include <stdio.h>
+#ifndef MY_LISTS_H
+#define MY_LISTS_H
 
-// Define your custom memory macros.
+// Define your custom memory macros **HERE**.
+#include "my_memory_system.h" // contains your arena/allocator declarations
+
+// IMPORTANT: Override all four to prevent mixing allocators
 #define Z_MALLOC(sz)      my_custom_alloc(sz)
 #define Z_CALLOC(n, sz)   my_custom_calloc(n, sz)
 #define Z_REALLOC(p, sz)  my_custom_realloc(p, sz)
 #define Z_FREE(p)         my_custom_free(p)
 
-// Include your registry header **AFTER**.
-#include "my_vectors.h"
 
-int main(void)
-{
-    // This will now use my_custom_calloc!
-    vec_int nums = vec_init(int);
-    
-    vec_push(&nums, 42); // This uses my_custom_realloc!
-    
-    vec_free(&nums);     // This uses my_custom_free!
-    return 0;
-}
+// Then include the library.
+#include "zlist.h"
+
+typedef struct { float x, y; } Point;
+
+#define REGISTER_TYPES(X) \
+    X(int, Int)           \
+    X(Point, Point)
+
+REGISTER_TYPES(DEFINE_LIST_TYPE)
+
+#endif
 ```
 
 > **Note:** You **must** override **all four macros** (`MALLOC`, `CALLOC`, `REALLOC`, `FREE`) if you override one, to ensure consistency.
