@@ -67,7 +67,7 @@ static inline list_##Name list_init_##Name(void) {                              
 }                                                                                   \
                                                                                     \
 static inline int list_push_back_##Name(list_##Name *l, T val) {                    \
-    zlist_node_##Name *n = Z_MALLOC(sizeof(zlist_node_##Name));                       \
+    zlist_node_##Name *n = Z_MALLOC(sizeof(zlist_node_##Name));                     \
     if (!n) return Z_ERR;                                                           \
     n->value = val;                                                                 \
     n->next = NULL;                                                                 \
@@ -80,7 +80,7 @@ static inline int list_push_back_##Name(list_##Name *l, T val) {                
 }                                                                                   \
                                                                                     \
 static inline int list_push_front_##Name(list_##Name *l, T val) {                   \
-    zlist_node_##Name *n = Z_MALLOC(sizeof(zlist_node_##Name));                       \
+    zlist_node_##Name *n = Z_MALLOC(sizeof(zlist_node_##Name));                     \
     if (!n) return Z_ERR;                                                           \
     n->value = val;                                                                 \
     n->next = l->head;                                                              \
@@ -95,7 +95,7 @@ static inline int list_push_front_##Name(list_##Name *l, T val) {               
 static inline int list_insert_after_##Name(list_##Name *l,                          \
     zlist_node_##Name *prev_node, T val) {                                          \
     if (!prev_node) return list_push_front_##Name(l, val);                          \
-    zlist_node_##Name *n = Z_MALLOC(sizeof(zlist_node_##Name));                       \
+    zlist_node_##Name *n = Z_MALLOC(sizeof(zlist_node_##Name));                     \
     if (!n) return Z_ERR;                                                           \
     n->value = val;                                                                 \
     n->prev = prev_node;                                                            \
@@ -113,7 +113,7 @@ static inline void list_pop_back_##Name(list_##Name *l) {                       
     l->tail = old_tail->prev;                                                       \
     if (l->tail) l->tail->next = NULL;                                              \
     else l->head = NULL;                                                            \
-    Z_FREE(old_tail);                                                                 \
+    Z_FREE(old_tail);                                                               \
     l->length--;                                                                    \
 }                                                                                   \
                                                                                     \
@@ -123,7 +123,7 @@ static inline void list_pop_front_##Name(list_##Name *l) {                      
     l->head = old_head->next;                                                       \
     if (l->head) l->head->prev = NULL;                                              \
     else l->tail = NULL;                                                            \
-    Z_FREE(old_head);                                                                 \
+    Z_FREE(old_head);                                                               \
     l->length--;                                                                    \
 }                                                                                   \
                                                                                     \
@@ -133,7 +133,7 @@ static inline void list_remove_node_##Name(list_##Name *l, zlist_node_##Name *n)
     else l->head = n->next;                                                         \
     if (n->next) n->next->prev = n->prev;                                           \
     else l->tail = n->prev;                                                         \
-    Z_FREE(n);                                                                        \
+    Z_FREE(n);                                                                      \
     l->length--;                                                                    \
 }                                                                                   \
                                                                                     \
@@ -141,7 +141,7 @@ static inline void list_clear_##Name(list_##Name *l) {                          
     zlist_node_##Name *curr = l->head;                                              \
     while (curr) {                                                                  \
         zlist_node_##Name *next = curr->next;                                       \
-        Z_FREE(curr);                                                                 \
+        Z_FREE(curr);                                                               \
         curr = next;                                                                \
     }                                                                               \
     l->head = l->tail = NULL;                                                       \
