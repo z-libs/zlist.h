@@ -1,6 +1,9 @@
-/* 
+/*
  * GENERATED FILE - DO NOT EDIT DIRECTLY
  * Source: zlist.c
+ *
+ * This file is part of the z-libs collection: https://github.com/z-libs
+ * Licensed under the MIT License.
  */
 
 
@@ -41,7 +44,7 @@
 
 #ifndef ZLIST_H
 #define ZLIST_H
-// [Bundled] "zcommon.h" is included inline below
+// [Bundled] "zcommon.h" is included inline in this same file
 #include <assert.h>
 
 #define DEFINE_LIST_TYPE(T, Name)                                                   \
