@@ -32,7 +32,8 @@ Create a file named `my_lists.h` (or similar) to define which types need lists.
 
 #include "zlist.h"
 
-typedef struct {
+typedef struct
+{
     float x, y;
 } Point;
 
@@ -120,6 +121,40 @@ int main(void)
 | :--- | :--- |
 | `list_foreach(l, iter)` | Standard loop helper. `iter` is a node pointer variable; it traverses from head to tail. |
 | `list_foreach_safe(l, iter, safe)` | Safe loop helper. Requires two node pointers (`iter`, `safe`). Allows you to call `list_remove_node(l, iter)` inside the loop body without breaking the iterator. |
+
+## Memory Management
+
+By default, `zvec` uses the standard C library functions (`malloc`, `calloc`, `realloc`, `free`).
+
+However, you can override these to use your own memory subsystem (e.g., **Memory Arenas**, **Pools**, or **Debug Allocators**). To do this, simply define the `Z_` macros **before** including your registry header.
+
+**Example: Using a Custom Allocator**
+
+```c
+#include <stdio.h>
+
+// Define your custom memory macros.
+#define Z_MALLOC(sz)      my_custom_alloc(sz)
+#define Z_CALLOC(n, sz)   my_custom_calloc(n, sz)
+#define Z_REALLOC(p, sz)  my_custom_realloc(p, sz)
+#define Z_FREE(p)         my_custom_free(p)
+
+// Include your registry header **AFTER**.
+#include "my_vectors.h"
+
+int main(void)
+{
+    // This will now use my_custom_calloc!
+    vec_int nums = vec_init(int);
+    
+    vec_push(&nums, 42); // This uses my_custom_realloc!
+    
+    vec_free(&nums);     // This uses my_custom_free!
+    return 0;
+}
+```
+
+> **Note:** You **must** override **all four macros** (`MALLOC`, `CALLOC`, `REALLOC`, `FREE`) if you override one, to ensure consistency.
 
 ## Notes
 
