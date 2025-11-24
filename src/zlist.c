@@ -9,14 +9,6 @@
     #define Z_LIST_MALLOC(sz)      Z_MALLOC(sz)
 #endif
 
-#ifndef Z_LIST_CALLOC
-    #define Z_LIST_CALLOC(n, sz)   Z_CALLOC(n, sz)
-#endif
-
-#ifndef Z_LIST_REALLOC
-    #define Z_LIST_REALLOC(p, sz)  Z_REALLOC(p, sz)
-#endif
-
 #ifndef Z_LIST_FREE
     #define Z_LIST_FREE(p)         Z_FREE(p)
 #endif
