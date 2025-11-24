@@ -137,9 +137,9 @@ To use a custom allocator, define the `Z_` macros **inside your registry header*
 #define MY_LISTS_H
 
 // Define your custom memory macros **HERE**.
-#include "my_memory_system.h" // contains your arena/allocator declarations
+#include "my_memory_system.h"
 
-// IMPORTANT: Override all four to prevent mixing allocators
+// IMPORTANT: Override all four to prevent mixing allocators.
 #define Z_MALLOC(sz)      my_custom_alloc(sz)
 #define Z_CALLOC(n, sz)   my_custom_calloc(n, sz)
 #define Z_REALLOC(p, sz)  my_custom_realloc(p, sz)
