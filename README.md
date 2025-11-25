@@ -122,6 +122,29 @@ int main(void)
 | `list_foreach(l, iter)` | Standard loop helper. `iter` is a node pointer variable; it traverses from head to tail. |
 | `list_foreach_safe(l, iter, safe)` | Safe loop helper. Requires two node pointers (`iter`, `safe`). Allows you to call `list_remove_node(l, iter)` inside the loop body without breaking the iterator. |
 
+## Extensions (Experimental)
+
+If you are using a compiler that supports `__attribute__((cleanup))` (like GCC or Clang), you can use the **Auto-Cleanup** extension to automatically free lists when they go out of scope.
+
+| Macro | Description |
+| :--- | :--- |
+| `list_autofree(Type)` | Declares a list that automatically calls `list_clear` (freeing all nodes) when the variable leaves scope (RAII style). |
+
+**Example:**
+```c
+void process_queue() {
+    // 'queue' nodes will be automatically freed when this function returns.
+    list_autofree(int) queue = list_init(int);
+    list_push_back(&queue, 100);
+}
+```
+
+> **Disable Extensions:** To force standard compliance and disable these extensions, define `Z_NO_EXTENSIONS` before including the library.
+
+### Why `list_clear`?
+
+Unlike vectors, which free a single buffer, lists must walk the chain and free every node individually. The `list_autofree` macro automatically calls `list_clear`, ensuring O(N) cleanup happens implicitly so you don't leak nodes.
+
 ## Memory Management
 
 By default, `zlist.h` uses the standard C library functions (`malloc`, `calloc`, `realloc`, `free`).

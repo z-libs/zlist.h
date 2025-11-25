@@ -165,6 +165,10 @@ static inline zlist_node_##Name *list_tail_##Name(list_##Name *l) {             
 
 #define list_init(Name)           list_init_##Name()
 
+#if Z_HAS_CLEANUP
+    #define list_autofree(Name)  Z_CLEANUP(list_clear_##Name) list_##Name
+#endif
+
 #define list_push_back(l, val)     _Generic((l),    REGISTER_TYPES(L_PUSH_B_ENTRY)  default: 0)         (l, val)
 #define list_push_front(l, val)    _Generic((l),    REGISTER_TYPES(L_PUSH_F_ENTRY)  default: 0)         (l, val)
 #define list_insert_after(l, n, v) _Generic((l),    REGISTER_TYPES(L_INS_A_ENTRY)   default: 0)         (l, n, v)
