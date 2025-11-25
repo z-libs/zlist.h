@@ -36,6 +36,17 @@
     #define Z_FREE(p)          free(p)
 #endif
 
+// Compiler Extensions (Optional).
+// We check for GCC/Clang features to enable RAII-style cleanup.
+// Define Z_NO_EXTENSIONS to disable this manually.
+#if !defined(Z_NO_EXTENSIONS) && (defined(__GNUC__) || defined(__clang__))
+    #define Z_HAS_CLEANUP 1
+    #define Z_CLEANUP(func) __attribute__((cleanup(func)))
+#else
+    #define Z_HAS_CLEANUP 0
+    #define Z_CLEANUP(func) 
+#endif
+
 #endif
 
 
@@ -207,6 +218,10 @@ static inline zlist_node_##Name *list_tail_##Name(list_##Name *l) {             
 #define L_AT_ENTRY(T, Name)       list_##Name*: list_at_##Name,
 
 #define list_init(Name)           list_init_##Name()
+
+#if Z_HAS_CLEANUP
+    #define list_autofree(Name)  Z_CLEANUP(list_clear_##Name) list_##Name
+#endif
 
 #define list_push_back(l, val)     _Generic((l),    REGISTER_TYPES(L_PUSH_B_ENTRY)  default: 0)         (l, val)
 #define list_push_front(l, val)    _Generic((l),    REGISTER_TYPES(L_PUSH_F_ENTRY)  default: 0)         (l, val)
