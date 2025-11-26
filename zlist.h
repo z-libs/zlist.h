@@ -47,6 +47,13 @@
     #define Z_CLEANUP(func) 
 #endif
 
+// Metaprogramming Markers.
+// These macros are used by the Z-Scanner tool to find type definitions.
+// For the C compiler, they are no-ops (they compile to nothing).
+#define DEFINE_VEC_TYPE(T, Name)
+#define DEFINE_LIST_TYPE(T, Name)
+#define DEFINE_MAP_TYPE(Key, Val, Name)
+
 #endif
 
 
