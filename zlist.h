@@ -82,7 +82,7 @@
     #define Z_LIST_FREE(p)         Z_FREE(p)
 #endif
 
-#define DEFINE_LIST_TYPE(T, Name)                                                   \
+#define Z_LIST_GENERATE_IMPL(T, Name)                                               \
                                                                                     \
 typedef struct zlist_node_##Name {                                                  \
     struct zlist_node_##Name *prev;                                                 \
@@ -224,23 +224,42 @@ static inline zlist_node_##Name *list_tail_##Name(list_##Name *l) {             
 #define L_TAIL_ENTRY(T, Name)     list_##Name*: list_tail_##Name,
 #define L_AT_ENTRY(T, Name)       list_##Name*: list_at_##Name,
 
+#if defined(__has_include) && __has_include("z_registry.h")
+    #include "z_registry.h"
+#endif
+
+#ifndef Z_AUTOGEN_LISTS
+    #define Z_AUTOGEN_LISTS(X)
+#endif
+
+#ifndef REGISTER_TYPES
+    #define REGISTER_TYPES(X)
+#endif
+
+#define Z_ALL_LISTS(X) \
+    Z_AUTOGEN_LISTS(X) \
+    REGISTER_TYPES(X)
+
+Z_ALL_LISTS(Z_LIST_GENERATE_IMPL)
+
+
 #define list_init(Name)           list_init_##Name()
 
 #if Z_HAS_CLEANUP
     #define list_autofree(Name)  Z_CLEANUP(list_clear_##Name) list_##Name
 #endif
 
-#define list_push_back(l, val)     _Generic((l),    REGISTER_TYPES(L_PUSH_B_ENTRY)  default: 0)         (l, val)
-#define list_push_front(l, val)    _Generic((l),    REGISTER_TYPES(L_PUSH_F_ENTRY)  default: 0)         (l, val)
-#define list_insert_after(l, n, v) _Generic((l),    REGISTER_TYPES(L_INS_A_ENTRY)   default: 0)         (l, n, v)
-#define list_pop_back(l)           _Generic((l),    REGISTER_TYPES(L_POP_B_ENTRY)   default: (void)0)   (l)
-#define list_pop_front(l)          _Generic((l),    REGISTER_TYPES(L_POP_F_ENTRY)   default: (void)0)   (l)
-#define list_remove_node(l, n)     _Generic((l),    REGISTER_TYPES(L_REM_N_ENTRY)   default: (void)0)   (l, n)
-#define list_clear(l)              _Generic((l),    REGISTER_TYPES(L_CLEAR_ENTRY)   default: (void)0)   (l)
-#define list_splice(dst, src)      _Generic((dst),  REGISTER_TYPES(L_SPLICE_ENTRY)  default: (void)0)   (dst, src)
-#define list_head(l)               _Generic((l),    REGISTER_TYPES(L_HEAD_ENTRY)    default: (void*)0)  (l)
-#define list_tail(l)               _Generic((l),    REGISTER_TYPES(L_TAIL_ENTRY)    default: (void*)0)  (l)
-#define list_at(l, idx)            _Generic((l),    REGISTER_TYPES(L_AT_ENTRY)      default: (void*)0)  (l, idx)
+#define list_push_back(l, val)     _Generic((l),    Z_ALL_LISTS(L_PUSH_B_ENTRY)  default: 0)         (l, val)
+#define list_push_front(l, val)    _Generic((l),    Z_ALL_LISTS(L_PUSH_F_ENTRY)  default: 0)         (l, val)
+#define list_insert_after(l, n, v) _Generic((l),    Z_ALL_LISTS(L_INS_A_ENTRY)   default: 0)         (l, n, v)
+#define list_pop_back(l)           _Generic((l),    Z_ALL_LISTS(L_POP_B_ENTRY)   default: (void)0)   (l)
+#define list_pop_front(l)          _Generic((l),    Z_ALL_LISTS(L_POP_F_ENTRY)   default: (void)0)   (l)
+#define list_remove_node(l, n)     _Generic((l),    Z_ALL_LISTS(L_REM_N_ENTRY)   default: (void)0)   (l, n)
+#define list_clear(l)              _Generic((l),    Z_ALL_LISTS(L_CLEAR_ENTRY)   default: (void)0)   (l)
+#define list_splice(dst, src)      _Generic((dst),  Z_ALL_LISTS(L_SPLICE_ENTRY)  default: (void)0)   (dst, src)
+#define list_head(l)               _Generic((l),    Z_ALL_LISTS(L_HEAD_ENTRY)    default: (void*)0)  (l)
+#define list_tail(l)               _Generic((l),    Z_ALL_LISTS(L_TAIL_ENTRY)    default: (void*)0)  (l)
+#define list_at(l, idx)            _Generic((l),    Z_ALL_LISTS(L_AT_ENTRY)      default: (void*)0)  (l, idx)
 
 #define list_foreach(l, iter) \
     for ((iter) = (l)->head; (iter) != NULL; (iter) = (iter)->next)
