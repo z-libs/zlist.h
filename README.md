@@ -5,84 +5,94 @@
 ## Features
 
 * **Type Safety**: Compiler errors if you try to push a `float` into a `list_int`.
-* **O(1) Operations**: Constant time insertions and deletions at both ends (push/pop) and at known node positions.
+* **O(1) Operations**: Constant time insertions and deletions at both ends and at known node positions.
 * **Safe Iteration**: Includes `list_foreach_safe` to allow removing nodes while iterating without crashing.
-* **Header Only**: No build scripts or linking required.
-* **C11 Generics**: One API (`list_push_back`, `list_remove_node`, etc.) works for all registered types.
+* **Zero Boilerplate**: Use the **Z-Scanner** tool to automatically generate type registrations.
+* **Header Only**: No linking required.
+* **Memory Agnostic**: Supports custom allocators (Arenas, Pools, Debuggers).
 * **Zero Dependencies**: Only standard C headers used.
 
-## Installation & Setup
+## Quick Start (Automated)
 
-Since `zlist.h` generates code for your specific types, you don't just include the library: you create a Registry Header.
+The easiest way to use `zlist.h` is with the **Z-Scanner** tool, which scans your code and handles the boilerplate for you.
 
-> You can include the logic inside the source file, but if you are going to use the library in more than one file, this approach prevents code duplication.
+### 1. Setup
 
-### 1. Add the library
+Add `zlist.h` and the `z-core` tools to your project:
 
-Copy `zlist.h` into your project's include directory.
+```bash
+# Copy zlist.h to your root or include folder.
+git submodule add https://github.com/z-libs/z-core.git z-core
+```
 
-### 2. Create a Registry Header
+### 2. Write Code
 
-Create a file named `my_lists.h` (or similar) to define which types need lists.
+You don't need a separate registry file. Just define the types you need right where you use them (or in your own headers).
 
 ```c
-// my_lists.h
+#include <stdio.h>
+#include "zlist.h"
+
+// Define your struct.
+typedef struct { float x, y; } Point;
+
+// Request the list types you need.
+// (These are no-ops for the compiler, but markers for the scanner).
+DEFINE_LIST_TYPE(int, Int)
+DEFINE_LIST_TYPE(Point, Point)
+
+int main(void)
+{
+    list_Int nums = list_init(Int);
+    list_push_back(&nums, 42);
+
+    list_Point path = list_init(Point);
+    list_push_back(&path, ((Point){1.0f, 2.0f}));
+
+    printf("Head: %d\n", list_head(&nums)->value);
+    
+    list_clear(&nums);
+    list_clear(&path);
+    return 0;
+}
+```
+
+### 3. Build
+
+Run the scanner before compiling. It will create a header that `zlist.h` automatically detects.
+
+```bash
+# Scan your source folder (for example, src/ or .) and output to 'z_registry.h'.
+python3 z-core/zscanner.py . z_registry.h
+
+# Compile (Include the folder where z_registry.h lives, or just move it).
+gcc main.c -I. -o game
+```
+
+## Manual Setup
+
+If you cannot use Python or prefer manual control, you can use the **Registry Header** approach.
+
+* Create a file named `my_lists.h` (or something else).
+* Register your types using X-Macros.
+
+```c
 #ifndef MY_LISTS_H
 #define MY_LISTS_H
 
-#include "zlist.h"
+typedef struct { float x; } Point;
 
-typedef struct
-{
-    float x, y;
-} Point;
-
-// Register Types (The X-Macro):
-// Syntax: X(ActualType, ShortName).
-// - ActualType: The C type (e.g., 'int', 'struct Point').
-// - ShortName:  Suffix for the generated functions (e.g., 'int', 'Point').
-#define REGISTER_TYPES(X)     \
-    X(int, int)               \
+// **IT HAS TO BE INCLUDED AFTER, NOT BEFORE**.
+#define REGISTER_TYPES(X) \
+    X(int, Int)           \
     X(Point, Point)
 
-// This generates the implementation for you.
-REGISTER_TYPES(DEFINE_LIST_TYPE)
+#include "zlist.h"
 
 #endif
 ```
 
-### 3. Use in your code
-
-Include your **registry header** (`my_lists.h`), not `zlist.h`.
-
-```c
-#include <stdio.h>
-#include "my_lists.h"
-
-int main(void)
-{
-    // Initialize (struct is on stack, nodes are malloc'd).
-    list_int nums = list_init(int);
-
-    // Push values.
-    list_push_back(&nums, 10);
-    list_push_front(&nums, 5);
-
-    // Iterate safely (allowing removal).
-    zlist_node_Int *curr, *safe;
-    list_foreach_safe(&nums, curr, safe)
-    {
-        printf("%d ", curr->value);
-        if (curr->value == 10) {
-            list_remove_node(&nums, curr);
-        }
-    }
-
-    // Cleanup (frees all remaining nodes).
-    list_clear(&nums);
-    return 0;
-}
-```
+* Include `"my_lists.h"` instead of `"zlist.h"` in your C files.
 
 ## API Reference
 
