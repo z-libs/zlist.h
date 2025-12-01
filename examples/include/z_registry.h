@@ -4,13 +4,14 @@
 
 /* Vectors */
 #define Z_AUTOGEN_VECS(X) \
+    /* No vectors found */
 
 /* Lists */
 #define Z_AUTOGEN_LISTS(X) \
     X(int, Int) \
-    X(Point, Point) \
 
 /* Maps */
 #define Z_AUTOGEN_MAPS(X) \
+    /* No maps found */
 
 #endif // Z_REGISTRY_H
