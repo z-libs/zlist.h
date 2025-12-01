@@ -437,7 +437,7 @@ Z_ALL_LISTS(Z_LIST_GENERATE_IMPL)
          (iter) != NULL; \
          (iter) = (safe_iter), (safe_iter) = (iter) ? (iter)->next : NULL)
 
-/*C++ Trait specialization */
+/*C++ trait specialization. */
 #ifdef __cplusplus
 } // extern "C"
 
@@ -448,7 +448,7 @@ namespace z_list
         {                                                                   \
             using list_type = list_##Name;                                  \
             using node_type = zlist_node_##Name;                            \
-            /* Define static constexpr auto for all C functions */          \
+            /* Define static constexpr auto for all C functions. */         \
             static constexpr auto init = list_init_##Name;                  \
             static constexpr auto push_back = list_push_back_##Name;        \
             static constexpr auto push_front = list_push_front_##Name;      \

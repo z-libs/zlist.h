@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 
 typedef struct 
@@ -45,6 +46,6 @@ int main(void)
 
     list_clear(&nums);
     list_clear(&points); 
-
+   
     return 0;
 }

@@ -1,6 +1,15 @@
 
 #include <stdio.h>
-#include "my_lists.h"
+
+typedef struct
+{
+    float x, y;
+} Point; 
+
+#include "zlist.h"
+
+DEFINE_LIST_TYPE(int, Int)
+DEFINE_LIST_TYPE(Point, Point)
 
 int main(void) 
 {
