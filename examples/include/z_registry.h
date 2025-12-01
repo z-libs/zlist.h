@@ -9,6 +9,7 @@
 /* Lists */
 #define Z_AUTOGEN_LISTS(X) \
     X(int, Int) \
+    X(Point, Point) \
 
 /* Maps */
 #define Z_AUTOGEN_MAPS(X) \
