@@ -76,6 +76,191 @@
 #define ZLIST_H
 // [Bundled] "zcommon.h" is included inline in this same file
 #include <assert.h>
+#include <stddef.h>
+#include <stdbool.h>
+
+#ifdef __cplusplus
+#include <stdexcept>
+#include <initializer_list>
+#include <iterator>
+#include <utility>
+
+namespace z_list
+{
+    // Forward declarations.
+    template <typename T> struct list;
+    template <typename T> class list_iterator;
+
+    /* Traits struct. */
+    template <typename T>
+    struct traits
+    {
+        static_assert(sizeof(T) == 0, "No zlist implementation registered for this type (via DEFINE_LIST_TYPE).");
+    };
+
+    template <typename T>
+    class list_iterator
+    {
+    public:
+        using value_type = T;
+        using reference = T&;
+        using pointer = T*;
+        using difference_type = ptrdiff_t;
+        using iterator_category = std::bidirectional_iterator_tag;
+
+        using CNode = typename list<T>::c_node;
+
+        // Constructor from C node pointer.
+        explicit list_iterator(CNode *p) : current(p) {}
+
+        // Accessors.
+        reference operator*() const { return current->value; }
+        pointer operator->() const { return &current->value; }
+
+        // Comparison.
+        bool operator==(const list_iterator& other) const { return current == other.current; }
+        bool operator!=(const list_iterator& other) const { return current != other.current; }
+
+        // Increment/decrement.
+        list_iterator& operator++() { current = current->next; return *this; }
+        list_iterator operator++(int) { list_iterator temp = *this; current = current->next; return temp; }
+        list_iterator& operator--() { current = current->prev; return *this; }
+        list_iterator operator--(int) { list_iterator temp = *this; current = current->prev; return temp; }
+
+    private:
+        CNode *current;
+        friend struct list<T>;
+    };
+
+    template <typename T>
+    struct list
+    {
+        // Aliases for the internal C types and trait lookup.
+        using Traits = traits<T>;
+        using c_list = typename Traits::list_type;
+        using c_node = typename Traits::node_type;
+
+        // Standard iterator types.
+        using iterator = list_iterator<T>;
+        using const_iterator = list_iterator<const T>;
+
+        // Internal C structure.
+        c_list inner;
+
+        /* Constructors & destructor (RAII). */
+
+        // Default constructor: calls C init function (zeroes struct)
+        list() : inner(Traits::init()) {}
+
+        // Initializer list constructor.
+        list(std::initializer_list<T> init) : inner(Traits::init())
+        {
+            for (const auto& item : init) 
+            {
+                push_back(item);
+            }
+        }
+
+        // Copy constructor (deep copy).
+        list(const list& other) : inner(Traits::init())
+        {
+            for (const auto& item : other) {
+                push_back(item);
+            }
+        }
+
+        // Move constructor.
+        list(list&& other) noexcept : inner(other.inner)
+        {
+            other.inner = Traits::init();
+        }
+
+        // Cleans up memory automatically (calls list_clear_##Name).
+        ~list() { Traits::clear(&inner); }
+
+        // Copy assignment.
+        list& operator=(const list& other)
+        {
+            if (this != &other) {
+                Traits::clear(&inner);
+                inner = Traits::init();
+                for (const auto& item : other) { push_back(item); }
+            }
+            return *this;
+        }
+
+        // Move assignment.
+        list& operator=(list&& other) noexcept
+        {
+            if (this != &other) {
+                Traits::clear(&inner);
+                inner = other.inner;
+                other.inner = Traits::init();
+            }
+            return *this;
+        }
+
+        /* Accessors. */
+
+        size_t size() const { return inner.length; }
+        bool empty() const { return inner.length == 0; }
+
+        T& front() { if (empty()) throw std::out_of_range("list::front"); return inner.head->value; }
+        const T& front() const { if (empty()) throw std::out_of_range("list::front"); return inner.head->value; }
+        T& back() { if (empty()) throw std::out_of_range("list::back"); return inner.tail->value; }
+        const T& back() const { if (empty()) throw std::out_of_range("list::back"); return inner.tail->value; }
+
+        /* Modifiers. */
+
+        void push_back(const T& val) { Traits::push_back(&inner, val); }
+        void push_front(const T& val) { Traits::push_front(&inner, val); }
+
+        void pop_back() { if (empty()) throw std::out_of_range("list::pop_back"); Traits::pop_back(&inner); }
+        void pop_front() { if (empty()) throw std::out_of_range("list::pop_front"); Traits::pop_front(&inner); }
+
+        void clear() { Traits::clear(&inner); }
+
+        iterator insert_after(iterator pos, const T& val)
+        {
+            c_node *prev_node = pos.current;
+            Traits::insert_after(&inner, prev_node, val);
+
+            return iterator(prev_node ? prev_node->next : inner.head);
+        }
+
+        iterator erase(iterator pos)
+        {
+            if (pos.current == nullptr) throw std::out_of_range("list::erase on end() iterator");
+            c_node *to_remove = pos.current;
+            c_node *next_node = to_remove->next;
+            Traits::remove_node(&inner, to_remove);
+            return iterator(next_node);
+        }
+
+        void splice(list&& source)
+        {
+            Traits::splice(&inner, &source.inner);
+        }
+
+        /* Iterators. */
+
+        iterator begin() { return iterator(inner.head); }
+        const_iterator begin() const { return const_iterator(inner.head); }
+        const_iterator cbegin() const { return const_iterator(inner.head); }
+
+        iterator end() { return iterator(nullptr); }
+        const_iterator end() const { return const_iterator(nullptr); }
+        const_iterator cend() const { return const_iterator(nullptr); }
+    };
+
+    template <typename T>
+    using list_T = list<T>;
+} // namespace z_list.
+
+extern "C" {
+#endif // __cplusplus
+
+ /* C implementation. */
 
 #ifndef Z_LIST_MALLOC
     #define Z_LIST_MALLOC(sz)      Z_MALLOC(sz)
@@ -93,25 +278,39 @@
     #define Z_LIST_FREE(p)         Z_FREE(p)
 #endif
 
+/* * The generator macro.
+ * Expands to a complete implementation of a doubly linked list for type T.
+ * T    : The element type (e.g., int, float, Point).
+ * Name : The suffix for the generated functions (for example, Int -> list_push_front_Int).
+ *        Name must be one word only.
+ */
 #define Z_LIST_GENERATE_IMPL(T, Name)                                               \
                                                                                     \
-typedef struct zlist_node_##Name {                                                  \
+/* Node structure. */                                                               \
+typedef struct zlist_node_##Name                                                    \
+{                                                                                   \
     struct zlist_node_##Name *prev;                                                 \
     struct zlist_node_##Name *next;                                                 \
     T value;                                                                        \
 } zlist_node_##Name;                                                                \
                                                                                     \
-typedef struct {                                                                    \
-    zlist_node_##Name *head;                                                        \
-    zlist_node_##Name *tail;                                                        \
-    size_t length;                                                                  \
+/* List structure (container). */                                                   \
+typedef struct                                                                      \
+{                                                                                   \
+    zlist_node_##Name *head;    /* Pointer to the first element. */                 \
+    zlist_node_##Name *tail;    /* Pointer to the last element. */                  \
+    size_t length;              /* Number of elements in the list. */               \
 } list_##Name;                                                                      \
                                                                                     \
-static inline list_##Name list_init_##Name(void) {                                  \
+/* Initializes the list structure. */                                               \
+static inline list_##Name list_init_##Name(void)                                    \
+{                                                                                   \
     return (list_##Name){0};                                                        \
 }                                                                                   \
                                                                                     \
-static inline int list_push_back_##Name(list_##Name *l, T val) {                    \
+/* Adds an element to the end of the list (O(1)). */                                \
+static inline int list_push_back_##Name(list_##Name *l, T val)                      \
+{                                                                                   \
     zlist_node_##Name *n = Z_LIST_MALLOC(sizeof(zlist_node_##Name));                \
     if (!n) return Z_ERR;                                                           \
     n->value = val;                                                                 \
@@ -124,7 +323,9 @@ static inline int list_push_back_##Name(list_##Name *l, T val) {                
     return Z_OK;                                                                    \
 }                                                                                   \
                                                                                     \
-static inline int list_push_front_##Name(list_##Name *l, T val) {                   \
+/* Adds an element to the front of the list (O(1)). */                              \
+static inline int list_push_front_##Name(list_##Name *l, T val)                     \
+{                                                                                   \
     zlist_node_##Name *n = Z_LIST_MALLOC(sizeof(zlist_node_##Name));                \
     if (!n) return Z_ERR;                                                           \
     n->value = val;                                                                 \
@@ -137,8 +338,10 @@ static inline int list_push_front_##Name(list_##Name *l, T val) {               
     return Z_OK;                                                                    \
 }                                                                                   \
                                                                                     \
+/* Inserts an element after a specific node (O(1)). */                              \
 static inline int list_insert_after_##Name(list_##Name *l,                          \
-    zlist_node_##Name *prev_node, T val) {                                          \
+    zlist_node_##Name *prev_node, T val)                                            \
+    {                                                                               \
     if (!prev_node) return list_push_front_##Name(l, val);                          \
     zlist_node_##Name *n = Z_LIST_MALLOC(sizeof(zlist_node_##Name));                \
     if (!n) return Z_ERR;                                                           \
@@ -152,7 +355,9 @@ static inline int list_insert_after_##Name(list_##Name *l,                      
     return Z_OK;                                                                    \
 }                                                                                   \
                                                                                     \
-static inline void list_pop_back_##Name(list_##Name *l) {                           \
+/* Removes the last element (O(1)). */                                              \
+static inline void list_pop_back_##Name(list_##Name *l)                             \
+{                                                                                   \
     if (!l->tail) return;                                                           \
     zlist_node_##Name *old_tail = l->tail;                                          \
     l->tail = old_tail->prev;                                                       \
@@ -162,7 +367,9 @@ static inline void list_pop_back_##Name(list_##Name *l) {                       
     l->length--;                                                                    \
 }                                                                                   \
                                                                                     \
-static inline void list_pop_front_##Name(list_##Name *l) {                          \
+/* Removes the first element (O(1)). */                                             \
+static inline void list_pop_front_##Name(list_##Name *l)                            \
+{                                                                                   \
     if (!l->head) return;                                                           \
     zlist_node_##Name *old_head = l->head;                                          \
     l->head = old_head->next;                                                       \
@@ -172,7 +379,9 @@ static inline void list_pop_front_##Name(list_##Name *l) {                      
     l->length--;                                                                    \
 }                                                                                   \
                                                                                     \
-static inline void list_remove_node_##Name(list_##Name *l, zlist_node_##Name *n) {  \
+/* Removes an arbitrary node (O(1)). */                                             \
+static inline void list_remove_node_##Name(list_##Name *l, zlist_node_##Name *n)    \
+{                                                                                   \
     if (!n) return;                                                                 \
     if (n->prev) n->prev->next = n->next;                                           \
     else l->head = n->next;                                                         \
@@ -182,9 +391,12 @@ static inline void list_remove_node_##Name(list_##Name *l, zlist_node_##Name *n)
     l->length--;                                                                    \
 }                                                                                   \
                                                                                     \
-static inline void list_clear_##Name(list_##Name *l) {                              \
+/* Frees all nodes in the list. */                                                  \
+static inline void list_clear_##Name(list_##Name *l)                                \
+{                                                                                   \
     zlist_node_##Name *curr = l->head;                                              \
-    while (curr) {                                                                  \
+    while (curr)                                                                    \
+    {                                                                               \
         zlist_node_##Name *next = curr->next;                                       \
         Z_LIST_FREE(curr);                                                          \
         curr = next;                                                                \
@@ -193,12 +405,17 @@ static inline void list_clear_##Name(list_##Name *l) {                          
     l->length = 0;                                                                  \
 }                                                                                   \
                                                                                     \
-static inline void list_splice_##Name(list_##Name *dest, list_##Name *src) {        \
+/* Moves all nodes from src to dest (src becomes empty, O(1)). */                   \
+static inline void list_splice_##Name(list_##Name *dest, list_##Name *src)          \
+{                                                                                   \
     if (dest == src) return;                                                        \
     if (!src->head) return;                                                         \
-    if (!dest->head) {                                                              \
+    if (!dest->head)                                                                \
+    {                                                                               \
         *dest = *src;                                                               \
-    } else {                                                                        \
+    }                                                                               \
+    else                                                                            \
+    {                                                                               \
         dest->tail->next = src->head;                                               \
         src->head->prev = dest->tail;                                               \
         dest->tail = src->tail;                                                     \
@@ -208,21 +425,28 @@ static inline void list_splice_##Name(list_##Name *dest, list_##Name *src) {    
     src->length = 0;                                                                \
 }                                                                                   \
                                                                                     \
-static inline zlist_node_##Name *list_at_##Name(list_##Name *l, size_t index) {     \
+/* Returns node at index (O(N) - use only for debugging/small lists). */            \
+static inline zlist_node_##Name *list_at_##Name(list_##Name *l, size_t index)       \
+{                                                                                   \
     if (index >= l->length) return NULL;                                            \
     zlist_node_##Name *curr = l->head;                                              \
     while (index-- > 0) curr = curr->next;                                          \
     return curr;                                                                    \
 }                                                                                   \
                                                                                     \
-static inline zlist_node_##Name *list_head_##Name(list_##Name *l) {                 \
+/* Returns the head node. */                                                        \
+static inline zlist_node_##Name *list_head_##Name(list_##Name *l)                   \
+{                                                                                   \
     return l->head;                                                                 \
 }                                                                                   \
                                                                                     \
-static inline zlist_node_##Name *list_tail_##Name(list_##Name *l) {                 \
+/* Returns the tail node. */                                                        \
+static inline zlist_node_##Name *list_tail_##Name(list_##Name *l)                   \
+{                                                                                   \
     return l->tail;                                                                 \
 }
 
+/* C Generic dispatch entries. */
 #define L_PUSH_B_ENTRY(T, Name)   list_##Name*: list_push_back_##Name,
 #define L_PUSH_F_ENTRY(T, Name)   list_##Name*: list_push_front_##Name,
 #define L_INS_A_ENTRY(T, Name)    list_##Name*: list_insert_after_##Name,
@@ -235,6 +459,7 @@ static inline zlist_node_##Name *list_tail_##Name(list_##Name *l) {             
 #define L_TAIL_ENTRY(T, Name)     list_##Name*: list_tail_##Name,
 #define L_AT_ENTRY(T, Name)       list_##Name*: list_at_##Name,
 
+/* Registry & type generation */
 #if defined(__has_include) && __has_include("z_registry.h")
     #include "z_registry.h"
 #endif
@@ -247,15 +472,18 @@ static inline zlist_node_##Name *list_tail_##Name(list_##Name *l) {             
     #define REGISTER_TYPES(X)
 #endif
 
+// Combine all sources of types
 #define Z_ALL_LISTS(X) \
     Z_AUTOGEN_LISTS(X) \
     REGISTER_TYPES(X)
 
+// Execute the generator for all registered types.
 Z_ALL_LISTS(Z_LIST_GENERATE_IMPL)
 
-
+/* C API Macros (using _Generic). */
 #define list_init(Name)           list_init_##Name()
 
+// Auto-cleanup extension (GCC/Clang).
 #if Z_HAS_CLEANUP
     #define list_autofree(Name)  Z_CLEANUP(list_clear_##Name) list_##Name
 #endif
@@ -272,6 +500,7 @@ Z_ALL_LISTS(Z_LIST_GENERATE_IMPL)
 #define list_tail(l)               _Generic((l),    Z_ALL_LISTS(L_TAIL_ENTRY)    default: (void*)0)  (l)
 #define list_at(l, idx)            _Generic((l),    Z_ALL_LISTS(L_AT_ENTRY)      default: (void*)0)  (l, idx)
 
+// Iteration helpers (C only).
 #define list_foreach(l, iter) \
     for ((iter) = (l)->head; (iter) != NULL; (iter) = (iter)->next)
 
@@ -280,4 +509,33 @@ Z_ALL_LISTS(Z_LIST_GENERATE_IMPL)
          (iter) != NULL; \
          (iter) = (safe_iter), (safe_iter) = (iter) ? (iter)->next : NULL)
 
-#endif
+/*C++ Trait specialization */
+#ifdef __cplusplus
+} // extern "C"
+
+namespace z_list
+{
+    #define ZLIST_CPP_TRAITS(T, Name)                                       \
+        template<> struct traits<T>                                         \
+        {                                                                   \
+            using list_type = list_##Name;                                  \
+            using node_type = zlist_node_##Name;                            \
+            /* Define static constexpr auto for all C functions */          \
+            static constexpr auto init = list_init_##Name;                  \
+            static constexpr auto push_back = list_push_back_##Name;        \
+            static constexpr auto push_front = list_push_front_##Name;      \
+            static constexpr auto insert_after = list_insert_after_##Name;  \
+            static constexpr auto pop_back = list_pop_back_##Name;          \
+            static constexpr auto pop_front = list_pop_front_##Name;        \
+            static constexpr auto remove_node = list_remove_node_##Name;    \
+            static constexpr auto clear = list_clear_##Name;                \
+            static constexpr auto splice = list_splice_##Name;              \
+            static constexpr auto head = list_head_##Name;                  \
+            static constexpr auto tail = list_tail_##Name;                  \
+        };
+
+    Z_ALL_LISTS(ZLIST_CPP_TRAITS)
+} // namespace z_list
+#endif // __cplusplus
+
+#endif // ZLIST_H
