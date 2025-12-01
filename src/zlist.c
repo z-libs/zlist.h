@@ -1,4 +1,3 @@
-
 #ifndef ZLIST_H
 #define ZLIST_H
 
@@ -12,6 +11,7 @@
 #include <initializer_list>
 #include <iterator>
 #include <utility>
+#include <type_traits>
 
 namespace z_list
 {
@@ -19,7 +19,7 @@ namespace z_list
     template <typename T> struct list;
     template <typename T> class list_iterator;
 
-    /* Traits struct. */
+    // Traits struct.
     template <typename T>
     struct traits
     {
@@ -36,7 +36,7 @@ namespace z_list
         using difference_type = ptrdiff_t;
         using iterator_category = std::bidirectional_iterator_tag;
 
-        using CNode = typename list<T>::c_node;
+        using CNode = typename list<typename std::remove_const<T>::type>::c_node;
 
         // Constructor from C node pointer.
         explicit list_iterator(CNode *p) : current(p) {}
@@ -57,7 +57,7 @@ namespace z_list
 
     private:
         CNode *current;
-        friend struct list<T>;
+        friend struct list<typename std::remove_const<T>::type>;
     };
 
     template <typename T>
@@ -92,7 +92,8 @@ namespace z_list
         // Copy constructor (deep copy).
         list(const list& other) : inner(Traits::init())
         {
-            for (const auto& item : other) {
+            for (const auto& item : other)
+            {
                 push_back(item);
             }
         }
@@ -109,7 +110,8 @@ namespace z_list
         // Copy assignment.
         list& operator=(const list& other)
         {
-            if (this != &other) {
+            if (this != &other) 
+            {
                 Traits::clear(&inner);
                 inner = Traits::init();
                 for (const auto& item : other) { push_back(item); }
@@ -120,7 +122,8 @@ namespace z_list
         // Move assignment.
         list& operator=(list&& other) noexcept
         {
-            if (this != &other) {
+            if (this != &other) 
+            {
                 Traits::clear(&inner);
                 inner = other.inner;
                 other.inner = Traits::init();
@@ -140,8 +143,16 @@ namespace z_list
 
         /* Modifiers. */
 
-        void push_back(const T& val) { Traits::push_back(&inner, val); }
-        void push_front(const T& val) { Traits::push_front(&inner, val); }
+        // FIX: Check return codes for allocation failures
+        void push_back(const T& val) 
+        { 
+            if (Traits::push_back(&inner, val) != Z_OK) throw std::bad_alloc(); 
+        }
+        
+        void push_front(const T& val) 
+        { 
+            if (Traits::push_front(&inner, val) != Z_OK) throw std::bad_alloc(); 
+        }
 
         void pop_back() { if (empty()) throw std::out_of_range("list::pop_back"); Traits::pop_back(&inner); }
         void pop_front() { if (empty()) throw std::out_of_range("list::pop_front"); Traits::pop_front(&inner); }
@@ -151,7 +162,11 @@ namespace z_list
         iterator insert_after(iterator pos, const T& val)
         {
             c_node *prev_node = pos.current;
-            Traits::insert_after(&inner, prev_node, val);
+            
+            if (Traits::insert_after(&inner, prev_node, val) != Z_OK) 
+            {
+                 throw std::bad_alloc();
+            }
 
             return iterator(prev_node ? prev_node->next : inner.head);
         }
