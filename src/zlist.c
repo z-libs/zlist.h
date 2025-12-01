@@ -239,7 +239,7 @@ static inline list_##Name list_init_##Name(void)                                
 /* Adds an element to the end of the list (O(1)). */                                \
 static inline int list_push_back_##Name(list_##Name *l, T val)                      \
 {                                                                                   \
-    zlist_node_##Name *n = Z_LIST_MALLOC(sizeof(zlist_node_##Name));                \
+    zlist_node_##Name *n = (T*) Z_LIST_MALLOC(sizeof(zlist_node_##Name));           \
     if (!n) return Z_ERR;                                                           \
     n->value = val;                                                                 \
     n->next = NULL;                                                                 \
@@ -254,7 +254,7 @@ static inline int list_push_back_##Name(list_##Name *l, T val)                  
 /* Adds an element to the front of the list (O(1)). */                              \
 static inline int list_push_front_##Name(list_##Name *l, T val)                     \
 {                                                                                   \
-    zlist_node_##Name *n = Z_LIST_MALLOC(sizeof(zlist_node_##Name));                \
+    zlist_node_##Name *n = (T*) Z_LIST_MALLOC(sizeof(zlist_node_##Name));           \
     if (!n) return Z_ERR;                                                           \
     n->value = val;                                                                 \
     n->next = l->head;                                                              \
@@ -271,7 +271,7 @@ static inline int list_insert_after_##Name(list_##Name *l,                      
     zlist_node_##Name *prev_node, T val)                                            \
     {                                                                               \
     if (!prev_node) return list_push_front_##Name(l, val);                          \
-    zlist_node_##Name *n = Z_LIST_MALLOC(sizeof(zlist_node_##Name));                \
+    zlist_node_##Name *n = (T*) Z_LIST_MALLOC(sizeof(zlist_node_##Name));           \
     if (!n) return Z_ERR;                                                           \
     n->value = val;                                                                 \
     n->prev = prev_node;                                                            \
