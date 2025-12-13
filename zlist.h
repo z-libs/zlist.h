@@ -100,6 +100,29 @@
 #endif // Z_COMMON_BUNDLED
 /* ============================================================================ */
 
+
+/*
+ * zlist.h — Type-safe, zero-overhead intrusive doubly-linked lists
+ * Part of Zen Development Kit (ZDK)
+ *
+ * This is a macro-generated, single-header intrusive doubly-linked list library.
+ * It produces fully type-safe list implementations at compile time with zero
+ * runtime overhead and full C11 _Generic + C++ RAII support.
+ *
+ * Features:
+ *   • O(1) push/pop front/back, insert_after, splice
+ *   • Full bidirectional iterators
+ *   • C++ z_list::list<T> with RAII and STL-compatible interface
+ *   • Optional short names via ZLIST_SHORT_NAMES
+ *   • Automatic type registration via z_registry.h
+ *   • Allocation failure returns Z_ERR (fast path), C++ wrapper throws bad_alloc
+ *
+ * License: MIT
+ * Author: Zuhaitz
+ * Repository: https://github.com/z-libs/zlist
+ * Version: 1.0.0
+ */
+
 #ifndef ZLIST_H
 #define ZLIST_H
 // [Bundled] "zcommon.h" is included inline in this same file
@@ -124,7 +147,7 @@ namespace z_list
     template <typename T>
     struct traits
     {
-        static_assert(sizeof(T) == 0, "No zlist implementation registered for this type (via DEFINE_LIST_TYPE).");
+        static_assert(0 == sizeof(T), "No zlist implementation registered for this type (via DEFINE_LIST_TYPE).");
     };
 
     template <typename T>
@@ -143,18 +166,55 @@ namespace z_list
         explicit list_iterator(CNode *p) : current(p) {}
 
         // Accessors.
-        reference operator*() const { return current->value; }
-        pointer operator->() const { return &current->value; }
+
+        reference operator*() const 
+        { 
+            return current->value; 
+        }
+
+        pointer operator->() const 
+        { 
+            return &current->value; 
+        }
 
         // Comparison.
-        bool operator==(const list_iterator& other) const { return current == other.current; }
-        bool operator!=(const list_iterator& other) const { return current != other.current; }
+
+        bool operator==(const list_iterator& other) const 
+        { 
+            return current == other.current; 
+        }
+        bool operator!=(const list_iterator& other) const 
+        { 
+            return current != other.current; 
+        }
 
         // Increment/decrement.
-        list_iterator& operator++() { current = current->next; return *this; }
-        list_iterator operator++(int) { list_iterator temp = *this; current = current->next; return temp; }
-        list_iterator& operator--() { current = current->prev; return *this; }
-        list_iterator operator--(int) { list_iterator temp = *this; current = current->prev; return temp; }
+
+        list_iterator &operator++() 
+        { 
+            current = current->next; 
+            return *this; 
+        }
+
+        list_iterator operator++(int) 
+        { 
+            list_iterator temp = *this; 
+            current = current->next; 
+            return temp; 
+        }
+
+        list_iterator &operator--() 
+        { 
+            current = current->prev; 
+            return *this; 
+        }
+
+        list_iterator operator--(int) 
+        { 
+            list_iterator temp = *this;
+            current = current->prev;
+            return temp; 
+        }
 
     private:
         CNode *current;
@@ -176,7 +236,7 @@ namespace z_list
         // Internal C structure.
         c_list inner;
 
-        /* Constructors & destructor (RAII). */
+        // Constructors & destructor (RAII).
 
         // Default constructor: calls C init function (zeroes struct)
         list() : inner(Traits::init()) {}
@@ -184,16 +244,17 @@ namespace z_list
         // Initializer list constructor.
         list(std::initializer_list<T> init) : inner(Traits::init())
         {
-            for (const auto& item : init) 
+            for (const auto &item : init) 
             {
                 push_back(item);
             }
         }
 
         // Copy constructor (deep copy).
-        list(const list& other) : inner(Traits::init())
+
+        list(const list &other) : inner(Traits::init())
         {
-            for (const auto& item : other)
+            for (const auto &item : other)
             {
                 push_back(item);
             }
@@ -206,12 +267,15 @@ namespace z_list
         }
 
         // Cleans up memory automatically (calls list_clear_##Name).
-        ~list() { Traits::clear(&inner); }
+        ~list() 
+        { 
+            Traits::clear(&inner); 
+        }
 
         // Copy assignment.
-        list& operator=(const list& other)
+        list &operator=(const list& other)
         {
-            if (this != &other) 
+            if (&other != this) 
             {
                 Traits::clear(&inner);
                 inner = Traits::init();
@@ -232,39 +296,100 @@ namespace z_list
             return *this;
         }
 
-        /* Accessors. */
+        // Accessors.
 
-        size_t size() const { return inner.length; }
-        bool empty() const { return inner.length == 0; }
-
-        T& front() { if (empty()) throw std::out_of_range("list::front"); return inner.head->value; }
-        const T& front() const { if (empty()) throw std::out_of_range("list::front"); return inner.head->value; }
-        T& back() { if (empty()) throw std::out_of_range("list::back"); return inner.tail->value; }
-        const T& back() const { if (empty()) throw std::out_of_range("list::back"); return inner.tail->value; }
-
-        /* Modifiers. */
-
-        // FIX: Check return codes for allocation failures
-        void push_back(const T& val) 
+        size_t size() const 
         { 
-            if (Traits::push_back(&inner, val) != Z_OK) throw std::bad_alloc(); 
+            return inner.length; 
+        }
+
+        bool empty() const 
+        { 
+            return 0 == inner.length; 
+        }
+
+        T &front() 
+        { 
+            if (empty())
+            { 
+                throw std::out_of_range("list::front");
+            } 
+            return inner.head->value; 
+        }
+
+        const T &front() const 
+        { 
+            if (empty()) 
+            {
+                throw std::out_of_range("list::front"); 
+            }
+            return inner.head->value; 
+        }
+
+        T &back() 
+        { 
+            if (empty()) 
+            {
+                throw std::out_of_range("list::back"); 
+            }
+            return inner.tail->value; 
+        }
+
+        const T &back() const 
+        { 
+            if (empty())
+            {
+                throw std::out_of_range("list::back"); 
+            }
+            return inner.tail->value; 
+        }
+
+        // Modifiers.
+
+        void push_back(const T &val) 
+        { 
+            if (Z_OK != Traits::push_back(&inner, val)) 
+            {
+                throw std::bad_alloc(); 
+            }
         }
         
-        void push_front(const T& val) 
+        void push_front(const T &val) 
         { 
-            if (Traits::push_front(&inner, val) != Z_OK) throw std::bad_alloc(); 
+            if (Z_OK != Traits::push_front(&inner, val)) 
+            {
+                throw std::bad_alloc(); 
+            }
         }
 
-        void pop_back() { if (empty()) throw std::out_of_range("list::pop_back"); Traits::pop_back(&inner); }
-        void pop_front() { if (empty()) throw std::out_of_range("list::pop_front"); Traits::pop_front(&inner); }
+        void pop_back() 
+        { 
+            if (empty()) 
+            {
+                throw std::out_of_range("list::pop_back"); 
+            }
+            Traits::pop_back(&inner); 
+        }
 
-        void clear() { Traits::clear(&inner); }
+        void pop_front() 
+        { 
+            if (empty()) 
+            {
+                throw std::out_of_range("list::pop_front"); 
+            }
+            Traits::pop_front(&inner); 
+        }
 
-        iterator insert_after(iterator pos, const T& val)
+        void clear() 
+        { 
+            Traits::clear(&inner); 
+        }
+
+        iterator insert_after(iterator pos, const T &val)
         {
             c_node *prev_node = pos.current;
             
-            if (Traits::insert_after(&inner, prev_node, val) != Z_OK) 
+            if (Z_OK != Traits::insert_after(&inner, prev_node, val)) 
             {
                  throw std::bad_alloc();
             }
@@ -274,27 +399,52 @@ namespace z_list
 
         iterator erase(iterator pos)
         {
-            if (pos.current == nullptr) throw std::out_of_range("list::erase on end() iterator");
+            if (pos.current == nullptr) 
+            {
+                throw std::out_of_range("list::erase on end() iterator");
+            }
             c_node *to_remove = pos.current;
             c_node *next_node = to_remove->next;
             Traits::remove_node(&inner, to_remove);
             return iterator(next_node);
         }
 
-        void splice(list&& source)
+        void splice(list &&source)
         {
             Traits::splice(&inner, &source.inner);
         }
 
-        /* Iterators. */
+        // Iterators.
 
-        iterator begin() { return iterator(inner.head); }
-        const_iterator begin() const { return const_iterator(inner.head); }
-        const_iterator cbegin() const { return const_iterator(inner.head); }
+        iterator begin() 
+        { 
+            return iterator(inner.head); 
+        }
 
-        iterator end() { return iterator(nullptr); }
-        const_iterator end() const { return const_iterator(nullptr); }
-        const_iterator cend() const { return const_iterator(nullptr); }
+        const_iterator begin() const 
+        { 
+            return const_iterator(inner.head); 
+        }
+
+        const_iterator cbegin() const 
+        { 
+            return const_iterator(inner.head); 
+        }
+
+        iterator end() 
+        { 
+            return iterator(nullptr); 
+        }
+
+        const_iterator end() const 
+        { 
+            return const_iterator(nullptr); 
+        }
+        
+        const_iterator cend() const 
+        { 
+            return const_iterator(nullptr); 
+        }
     };
 
     template <typename T>
@@ -304,31 +454,38 @@ namespace z_list
 extern "C" {
 #endif // __cplusplus
 
- /* C implementation. */
+ // C implementation.
 
-#ifndef Z_LIST_MALLOC
-    #define Z_LIST_MALLOC(sz)      Z_MALLOC(sz)
+#ifndef ZLIST_MALLOC
+    #define ZLIST_MALLOC(sz)      Z_MALLOC(sz)
 #endif
 
-#ifndef Z_LIST_CALLOC
-    #define Z_LIST_CALLOC(n, sz)   Z_CALLOC(n, sz)
+#ifndef ZLIST_CALLOC
+    #define ZLIST_CALLOC(n, sz)   Z_CALLOC(n, sz)
 #endif
 
-#ifndef Z_LIST_REALLOC
-    #define Z_LIST_REALLOC(p, sz)  Z_REALLOC(p, sz)
+#ifndef ZLIST_REALLOC
+    #define ZLIST_REALLOC(p, sz)  Z_REALLOC(p, sz)
 #endif
 
-#ifndef Z_LIST_FREE
-    #define Z_LIST_FREE(p)         Z_FREE(p)
+#ifndef ZLIST_FREE
+    #define ZLIST_FREE(p)         Z_FREE(p)
 #endif
 
-/* * The generator macro.
- * Expands to a complete implementation of a doubly linked list for type T.
- * T    : The element type (e.g., int, float, Point).
- * Name : The suffix for the generated functions (for example, Int -> list_push_front_Int).
- *        Name must be one word only.
+/*
+ * ZLIST_GENERATE_IMPL(T, Name)
+ *
+ * Generates a complete doubly-linked list implementation for type T.
+ *
+ * Example:
+ *   #define REGISTER_ZLIST_TYPES(X) \
+ *       X(int, Int) \
+ *       X(float, Float)
+ *   #include "zlist.h"
+ *
+ * Creates: list_Int, list_push_back_Int, etc.
  */
-#define Z_LIST_GENERATE_IMPL(T, Name)                                               \
+#define ZLIST_GENERATE_IMPL(T, Name)                                               \
                                                                                     \
 /* Node structure. */                                                               \
 typedef struct zlist_node_##Name                                                    \
@@ -356,14 +513,23 @@ static inline list_##Name list_init_##Name(void)                                
 static inline int list_push_back_##Name(list_##Name *l, T val)                      \
 {                                                                                   \
     zlist_node_##Name *n = (zlist_node_##Name*)                                     \
-                            Z_LIST_MALLOC(sizeof(zlist_node_##Name));               \
-    if (!n) return Z_ERR;                                                           \
+                            ZLIST_MALLOC(sizeof(zlist_node_##Name));                \
+    if (!n)                                                                         \
+    {                                                                               \
+        return Z_ERR;                                                               \
+    }                                                                               \
     n->value = val;                                                                 \
     n->next = NULL;                                                                 \
     n->prev = l->tail;                                                              \
-    if (l->tail) l->tail->next = n;                                                 \
+    if (l->tail)                                                                    \
+    {                                                                               \
+        l->tail->next = n;                                                          \
+    }                                                                               \
     l->tail = n;                                                                    \
-    if (!l->head) l->head = n;                                                      \
+    if (!l->head)                                                                   \
+    {                                                                               \
+        l->head = n;                                                                \
+    }                                                                               \
     l->length++;                                                                    \
     return Z_OK;                                                                    \
 }                                                                                   \
@@ -372,14 +538,23 @@ static inline int list_push_back_##Name(list_##Name *l, T val)                  
 static inline int list_push_front_##Name(list_##Name *l, T val)                     \
 {                                                                                   \
     zlist_node_##Name *n = (zlist_node_##Name*)                                     \
-                            Z_LIST_MALLOC(sizeof(zlist_node_##Name));               \
-    if (!n) return Z_ERR;                                                           \
+                            ZLIST_MALLOC(sizeof(zlist_node_##Name));                \
+    if (!n)                                                                         \
+    {                                                                               \
+        return Z_ERR;                                                               \
+    }                                                                               \
     n->value = val;                                                                 \
     n->next = l->head;                                                              \
     n->prev = NULL;                                                                 \
-    if (l->head) l->head->prev = n;                                                 \
+    if (l->head)                                                                    \
+    {                                                                               \
+        l->head->prev = n;                                                          \
+    }                                                                               \
     l->head = n;                                                                    \
-    if (!l->tail) l->tail = n;                                                      \
+    if (!l->tail)                                                                   \
+    {                                                                               \
+        l->tail = n;                                                                \
+    }                                                                               \
     l->length++;                                                                    \
     return Z_OK;                                                                    \
 }                                                                                   \
@@ -388,15 +563,27 @@ static inline int list_push_front_##Name(list_##Name *l, T val)                 
 static inline int list_insert_after_##Name(list_##Name *l,                          \
     zlist_node_##Name *prev_node, T val)                                            \
     {                                                                               \
-    if (!prev_node) return list_push_front_##Name(l, val);                          \
+    if (!prev_node)                                                                 \
+    {                                                                               \
+        return list_push_front_##Name(l, val);                                      \
+    }                                                                               \
     zlist_node_##Name *n = (zlist_node_##Name*)                                     \
-                            Z_LIST_MALLOC(sizeof(zlist_node_##Name));               \
-    if (!n) return Z_ERR;                                                           \
+                            ZLIST_MALLOC(sizeof(zlist_node_##Name));                \
+    if (!n)                                                                         \
+    {                                                                               \
+        return Z_ERR;                                                               \
+    }                                                                               \
     n->value = val;                                                                 \
     n->prev = prev_node;                                                            \
     n->next = prev_node->next;                                                      \
-    if (prev_node->next) prev_node->next->prev = n;                                 \
-    else l->tail = n;                                                               \
+    if (prev_node->next)                                                            \
+    {                                                                               \
+        prev_node->next->prev = n;                                                  \
+    }                                                                               \
+    else                                                                            \
+    {                                                                               \
+        l->tail = n;                                                                \
+    }                                                                               \
     prev_node->next = n;                                                            \
     l->length++;                                                                    \
     return Z_OK;                                                                    \
@@ -405,36 +592,69 @@ static inline int list_insert_after_##Name(list_##Name *l,                      
 /* Removes the last element (O(1)). */                                              \
 static inline void list_pop_back_##Name(list_##Name *l)                             \
 {                                                                                   \
-    if (!l->tail) return;                                                           \
+    if (!l->tail)                                                                   \
+    {                                                                               \
+        return;                                                                     \
+    }                                                                               \
     zlist_node_##Name *old_tail = l->tail;                                          \
     l->tail = old_tail->prev;                                                       \
-    if (l->tail) l->tail->next = NULL;                                              \
-    else l->head = NULL;                                                            \
-    Z_LIST_FREE(old_tail);                                                          \
+    if (l->tail)                                                                    \
+    {                                                                               \
+        l->tail->next = NULL;                                                       \
+    }                                                                               \
+    else                                                                            \
+    {                                                                               \
+        l->head = NULL;                                                             \
+    }                                                                               \
+    ZLIST_FREE(old_tail);                                                           \
     l->length--;                                                                    \
 }                                                                                   \
                                                                                     \
 /* Removes the first element (O(1)). */                                             \
 static inline void list_pop_front_##Name(list_##Name *l)                            \
 {                                                                                   \
-    if (!l->head) return;                                                           \
+    if (!l->head)                                                                   \
+    {                                                                               \
+        return;                                                                     \
+    }                                                                               \
     zlist_node_##Name *old_head = l->head;                                          \
     l->head = old_head->next;                                                       \
-    if (l->head) l->head->prev = NULL;                                              \
-    else l->tail = NULL;                                                            \
-    Z_LIST_FREE(old_head);                                                          \
+    if (l->head)                                                                    \
+    {                                                                               \
+        l->head->prev = NULL;                                                       \
+    }                                                                               \
+    else                                                                            \
+    {                                                                               \
+        l->tail = NULL;                                                             \
+    }                                                                               \
+    ZLIST_FREE(old_head);                                                           \
     l->length--;                                                                    \
 }                                                                                   \
                                                                                     \
 /* Removes an arbitrary node (O(1)). */                                             \
 static inline void list_remove_node_##Name(list_##Name *l, zlist_node_##Name *n)    \
 {                                                                                   \
-    if (!n) return;                                                                 \
-    if (n->prev) n->prev->next = n->next;                                           \
-    else l->head = n->next;                                                         \
-    if (n->next) n->next->prev = n->prev;                                           \
-    else l->tail = n->prev;                                                         \
-    Z_LIST_FREE(n);                                                                 \
+    if (!n)                                                                         \
+    {                                                                               \
+        return;                                                                     \
+    }                                                                               \
+    if (n->prev)                                                                    \
+    {                                                                               \
+        n->prev->next = n->next;                                                    \
+    }                                                                               \
+    else                                                                            \
+    {                                                                               \
+        l->head = n->next;                                                          \
+    }                                                                               \
+    if (n->next)                                                                    \
+    {                                                                               \
+        n->next->prev = n->prev;                                                    \
+    }                                                                               \
+    else                                                                            \
+    {                                                                               \
+        l->tail = n->prev;                                                          \
+    }                                                                               \
+    ZLIST_FREE(n);                                                                  \
     l->length--;                                                                    \
 }                                                                                   \
                                                                                     \
@@ -445,7 +665,7 @@ static inline void list_clear_##Name(list_##Name *l)                            
     while (curr)                                                                    \
     {                                                                               \
         zlist_node_##Name *next = curr->next;                                       \
-        Z_LIST_FREE(curr);                                                          \
+        ZLIST_FREE(curr);                                                           \
         curr = next;                                                                \
     }                                                                               \
     l->head = l->tail = NULL;                                                       \
@@ -455,8 +675,14 @@ static inline void list_clear_##Name(list_##Name *l)                            
 /* Moves all nodes from src to dest (src becomes empty, O(1)). */                   \
 static inline void list_splice_##Name(list_##Name *dest, list_##Name *src)          \
 {                                                                                   \
-    if (dest == src) return;                                                        \
-    if (!src->head) return;                                                         \
+    if (dest == src)                                                                \
+    {                                                                               \
+        return;                                                                     \
+    }                                                                               \
+    if (!src->head)                                                                 \
+    {                                                                               \
+        return;                                                                     \
+    }                                                                               \
     if (!dest->head)                                                                \
     {                                                                               \
         *dest = *src;                                                               \
@@ -475,9 +701,15 @@ static inline void list_splice_##Name(list_##Name *dest, list_##Name *src)      
 /* Returns node at index (O(N) - use only for debugging/small lists). */            \
 static inline zlist_node_##Name *list_at_##Name(list_##Name *l, size_t index)       \
 {                                                                                   \
-    if (index >= l->length) return NULL;                                            \
+    if (index >= l->length)                                                         \
+    {                                                                               \
+        return NULL;                                                                \
+    }                                                                               \
     zlist_node_##Name *curr = l->head;                                              \
-    while (index-- > 0) curr = curr->next;                                          \
+    while (index-- > 0)                                                             \
+    {                                                                               \
+        curr = curr->next;                                                          \
+    }                                                                               \
     return curr;                                                                    \
 }                                                                                   \
                                                                                     \
@@ -493,7 +725,7 @@ static inline zlist_node_##Name *list_tail_##Name(list_##Name *l)               
     return l->tail;                                                                 \
 }
 
-/* C Generic dispatch entries. */
+// C Generic dispatch entries.
 #define L_PUSH_B_ENTRY(T, Name)   list_##Name*: list_push_back_##Name,
 #define L_PUSH_F_ENTRY(T, Name)   list_##Name*: list_push_front_##Name,
 #define L_INS_A_ENTRY(T, Name)    list_##Name*: list_insert_after_##Name,
@@ -506,33 +738,34 @@ static inline zlist_node_##Name *list_tail_##Name(list_##Name *l)               
 #define L_TAIL_ENTRY(T, Name)     list_##Name*: list_tail_##Name,
 #define L_AT_ENTRY(T, Name)       list_##Name*: list_at_##Name,
 
-/* Registry & type generation */
-#if defined(__has_include) && __has_include("z_registry.h")
-    #include "z_registry.h"
+#ifndef REGISTER_ZVEC_TYPES
+#   if defined(__has_include) && __has_include("z_registry.h")
+#       include "z_registry.h"
+#   endif
 #endif
 
 #ifndef Z_AUTOGEN_LISTS
-    #define Z_AUTOGEN_LISTS(X)
+#   define Z_AUTOGEN_LISTS(X)
 #endif
 
-#ifndef REGISTER_TYPES
-    #define REGISTER_TYPES(X)
+#ifndef REGISTER_ZLIST_TYPES
+#   define REGISTER_Z_LISTTYPES(X)
 #endif
 
 // Combine all sources of types
-#define Z_ALL_LISTS(X) \
-    Z_AUTOGEN_LISTS(X) \
-    REGISTER_TYPES(X)
+#define Z_ALL_LISTS(X)      \
+    Z_AUTOGEN_LISTS(X)      \
+    REGISTER_ZLIST_TYPES(X)
 
 // Execute the generator for all registered types.
-Z_ALL_LISTS(Z_LIST_GENERATE_IMPL)
+Z_ALL_LISTS(ZLIST_GENERATE_IMPL)
 
-/* C API Macros (using _Generic). */
+// C API Macros (using _Generic).
 #define list_init(Name)           list_init_##Name()
 
 // Auto-cleanup extension (GCC/Clang).
 #if Z_HAS_CLEANUP
-    #define list_autofree(Name)  Z_CLEANUP(list_clear_##Name) list_##Name
+#   define list_autofree(Name)  Z_CLEANUP(list_clear_##Name) list_##Name
 #endif
 
 #define list_push_back(l, val)     _Generic((l),    Z_ALL_LISTS(L_PUSH_B_ENTRY)  default: 0)         (l, val)
@@ -551,12 +784,12 @@ Z_ALL_LISTS(Z_LIST_GENERATE_IMPL)
 #define list_foreach(l, iter) \
     for ((iter) = (l)->head; (iter) != NULL; (iter) = (iter)->next)
 
-#define list_foreach_safe(l, iter, safe_iter) \
-    for ((iter) = (l)->head, (safe_iter) = (iter) ? (iter)->next : NULL; \
-         (iter) != NULL; \
+#define list_foreach_safe(l, iter, safe_iter)                               \
+    for ((iter) = (l)->head, (safe_iter) = (iter) ? (iter)->next : NULL;    \
+         (iter) != NULL;                                                    \
          (iter) = (safe_iter), (safe_iter) = (iter) ? (iter)->next : NULL)
 
-/*C++ trait specialization. */
+// C++ trait specialization.
 #ifdef __cplusplus
 } // extern "C"
 
@@ -567,7 +800,6 @@ namespace z_list
         {                                                                   \
             using list_type = list_##Name;                                  \
             using node_type = zlist_node_##Name;                            \
-            /* Define static constexpr auto for all C functions. */         \
             static constexpr auto init = list_init_##Name;                  \
             static constexpr auto push_back = list_push_back_##Name;        \
             static constexpr auto push_front = list_push_front_##Name;      \
