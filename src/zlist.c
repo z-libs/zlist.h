@@ -1,4 +1,3 @@
-
 /*
  * zlist.h — Type-safe, zero-overhead intrusive doubly-linked lists
  * Part of Zen Development Kit (ZDK)
@@ -8,12 +7,12 @@
  * runtime overhead and full C11 _Generic + C++ RAII support.
  *
  * Features:
- *   • O(1) push/pop front/back, insert_after, splice
- *   • Full bidirectional iterators
- *   • C++ z_list::list<T> with RAII and STL-compatible interface
- *   • Optional short names via ZLIST_SHORT_NAMES
- *   • Automatic type registration via z_registry.h
- *   • Allocation failure returns Z_ERR (fast path), C++ wrapper throws bad_alloc
+ * • O(1) push/pop front/back, insert_after, splice
+ * • Full bidirectional iterators
+ * • C++ z_list::list<T> with RAII and STL-compatible interface
+ * • Optional short names via ZLIST_SHORT_NAMES
+ * • Automatic type registration via z_registry.h
+ * • Allocation failure returns Z_ENOMEM (fast path)
  *
  * License: MIT
  * Author: Zuhaitz
@@ -29,6 +28,16 @@
 #include <stddef.h>
 #include <stdbool.h>
 
+#if defined(__has_include) && __has_include("zerror.h")
+    #include "zerror.h"
+    #define Z_HAS_ZERROR 1
+#elif defined(ZERROR_H)
+    #define Z_HAS_ZERROR 1
+#else
+    #define Z_HAS_ZERROR 0
+#endif
+
+// C++ interop preamble.
 #ifdef __cplusplus
 #include <stdexcept>
 #include <initializer_list>
@@ -78,11 +87,11 @@ namespace z_list
 
         // Comparison.
 
-        bool operator==(const list_iterator& other) const 
+        bool operator==(const list_iterator &other) const 
         { 
             return current == other.current; 
         }
-        bool operator!=(const list_iterator& other) const 
+        bool operator!=(const list_iterator &other) const 
         { 
             return current != other.current; 
         }
@@ -137,10 +146,8 @@ namespace z_list
 
         // Constructors & destructor (RAII).
 
-        // Default constructor: calls C init function (zeroes struct)
         list() : inner(Traits::init()) {}
 
-        // Initializer list constructor.
         list(std::initializer_list<T> init) : inner(Traits::init())
         {
             for (const auto &item : init) 
@@ -148,8 +155,6 @@ namespace z_list
                 push_back(item);
             }
         }
-
-        // Copy constructor (deep copy).
 
         list(const list &other) : inner(Traits::init())
         {
@@ -159,19 +164,16 @@ namespace z_list
             }
         }
 
-        // Move constructor.
-        list(list&& other) noexcept : inner(other.inner)
+        list(list &&other) noexcept : inner(other.inner)
         {
             other.inner = Traits::init();
         }
 
-        // Cleans up memory automatically (calls list_clear_##Name).
         ~list() 
         { 
             Traits::clear(&inner); 
         }
 
-        // Copy assignment.
         list &operator=(const list& other)
         {
             if (&other != this) 
@@ -183,8 +185,7 @@ namespace z_list
             return *this;
         }
 
-        // Move assignment.
-        list& operator=(list&& other) noexcept
+        list& operator=(list &&other) noexcept
         {
             if (this != &other) 
             {
@@ -210,26 +211,26 @@ namespace z_list
         T &front() 
         { 
             if (empty())
-            { 
+            {
                 throw std::out_of_range("list::front");
-            } 
+            }
             return inner.head->value; 
         }
 
         const T &front() const 
         { 
-            if (empty()) 
+            if (empty())
             {
-                throw std::out_of_range("list::front"); 
+                throw std::out_of_range("list::front");
             }
             return inner.head->value; 
         }
 
         T &back() 
         { 
-            if (empty()) 
+            if (empty())
             {
-                throw std::out_of_range("list::back"); 
+                throw std::out_of_range("list::back");
             }
             return inner.tail->value; 
         }
@@ -238,7 +239,7 @@ namespace z_list
         { 
             if (empty())
             {
-                throw std::out_of_range("list::back"); 
+                throw std::out_of_range("list::back");
             }
             return inner.tail->value; 
         }
@@ -263,9 +264,9 @@ namespace z_list
 
         void pop_back() 
         { 
-            if (empty()) 
+            if (empty())
             {
-                throw std::out_of_range("list::pop_back"); 
+                throw std::out_of_range("list::pop_back");
             }
             Traits::pop_back(&inner); 
         }
@@ -274,7 +275,7 @@ namespace z_list
         { 
             if (empty()) 
             {
-                throw std::out_of_range("list::pop_front"); 
+                throw std::out_of_range("list::pop_front");
             }
             Traits::pop_front(&inner); 
         }
@@ -287,18 +288,16 @@ namespace z_list
         iterator insert_after(iterator pos, const T &val)
         {
             c_node *prev_node = pos.current;
-            
             if (Z_OK != Traits::insert_after(&inner, prev_node, val)) 
             {
                  throw std::bad_alloc();
             }
-
             return iterator(prev_node ? prev_node->next : inner.head);
         }
 
         iterator erase(iterator pos)
         {
-            if (pos.current == nullptr) 
+            if (nullptr == pos.current) 
             {
                 throw std::out_of_range("list::erase on end() iterator");
             }
@@ -353,7 +352,7 @@ namespace z_list
 extern "C" {
 #endif // __cplusplus
 
- // C implementation.
+// C implementation.
 
 #ifndef ZLIST_MALLOC
     #define ZLIST_MALLOC(sz)      Z_MALLOC(sz)
@@ -371,6 +370,84 @@ extern "C" {
     #define ZLIST_FREE(p)         Z_FREE(p)
 #endif
 
+// Safe API generator logic (requires zerror.h).
+#if Z_HAS_ZERROR
+
+    static inline zerr zlist_err_impl(int code, const char* msg, 
+                                     const char* file, int line, const char* func) 
+    {
+        return zerr_create_impl(code, file, line, func, "%s", msg);
+    }
+
+    #define ZLIST_GEN_SAFE_IMPL(T, Name)                                                        \
+        DEFINE_RESULT(T, Res_##Name)                                                            \
+                                                                                                \
+        static inline zres zlist_push_back_safe_##Name(zlist_##Name *l, T val,                  \
+                                                      const char* f, int ln, const char* fn)    \
+        {                                                                                       \
+            if (Z_OK != zlist_push_back_##Name(l, val))                                         \
+            {                                                                                   \
+                return zres_err(zlist_err_impl(Z_ENOMEM, "List Push OOM", f, ln, fn));          \
+            }                                                                                   \
+            return zres_ok();                                                                   \
+        }                                                                                       \
+                                                                                                \
+        static inline zres zlist_push_front_safe_##Name(zlist_##Name *l, T val,                 \
+                                                       const char* f, int ln, const char* fn)   \
+        {                                                                                       \
+            if (Z_OK != zlist_push_front_##Name(l, val))                                        \
+            {                                                                                   \
+                return zres_err(zlist_err_impl(Z_ENOMEM, "List Push OOM", f, ln, fn));          \
+            }                                                                                   \
+            return zres_ok();                                                                   \
+        }                                                                                       \
+                                                                                                \
+        static inline Res_##Name zlist_front_safe_##Name(zlist_##Name *l,                       \
+                                                        const char* f, int ln, const char* fn)  \
+        {                                                                                       \
+            if (!l->head)                                                                       \
+            {                                                                                   \
+                return Res_##Name##_err(zlist_err_impl(Z_EEMPTY, "List is empty", f, ln, fn));  \
+            }                                                                                   \
+            return Res_##Name##_ok(l->head->value);                                             \
+        }                                                                                       \
+                                                                                                \
+        static inline Res_##Name zlist_back_safe_##Name(zlist_##Name *l,                        \
+                                                       const char* f, int ln, const char* fn)   \
+        {                                                                                       \
+            if (!l->tail)                                                                       \
+            {                                                                                   \
+                return Res_##Name##_err(zlist_err_impl(Z_EEMPTY, "List is empty", f, ln, fn));  \
+            }                                                                                   \
+            return Res_##Name##_ok(l->tail->value);                                             \
+        }                                                                                       \
+                                                                                                \
+        static inline zres zlist_pop_back_safe_##Name(zlist_##Name *l,                          \
+                                                     const char* f, int ln, const char* fn)     \
+        {                                                                                       \
+            if (!l->tail)                                                                       \
+            {                                                                                   \
+                return zres_err(zlist_err_impl(Z_EEMPTY, "List is empty", f, ln, fn));          \
+            }                                                                                   \
+            zlist_pop_back_##Name(l);                                                           \
+            return zres_ok();                                                                   \
+        }                                                                                       \
+                                                                                                \
+        static inline zres zlist_pop_front_safe_##Name(zlist_##Name *l,                         \
+                                                      const char* f, int ln, const char* fn)    \
+        {                                                                                       \
+            if (!l->head)                                                                       \
+            {                                                                                   \
+                return zres_err(zlist_err_impl(Z_EEMPTY, "List is empty", f, ln, fn));          \
+            }                                                                                   \
+            zlist_pop_front_##Name(l);                                                          \
+            return zres_ok();                                                                   \
+        }
+
+#else
+    #define ZLIST_GEN_SAFE_IMPL(T, Name)
+#endif
+
 /*
  * ZLIST_GENERATE_IMPL(T, Name)
  *
@@ -384,7 +461,7 @@ extern "C" {
  *
  * Creates: list_Int, list_push_back_Int, etc.
  */
-#define ZLIST_GENERATE_IMPL(T, Name)                                               \
+#define ZLIST_GENERATE_IMPL(T, Name)                                                \
                                                                                     \
 /* Node structure. */                                                               \
 typedef struct zlist_node_##Name                                                    \
@@ -400,22 +477,22 @@ typedef struct                                                                  
     zlist_node_##Name *head;    /* Pointer to the first element. */                 \
     zlist_node_##Name *tail;    /* Pointer to the last element. */                  \
     size_t length;              /* Number of elements in the list. */               \
-} list_##Name;                                                                      \
+} zlist_##Name;                                                                     \
                                                                                     \
 /* Initializes the list structure. */                                               \
-static inline list_##Name list_init_##Name(void)                                    \
+static inline zlist_##Name zlist_init_##Name(void)                                  \
 {                                                                                   \
-    return (list_##Name){0};                                                        \
+    return (zlist_##Name){0};                                                       \
 }                                                                                   \
                                                                                     \
 /* Adds an element to the end of the list (O(1)). */                                \
-static inline int list_push_back_##Name(list_##Name *l, T val)                      \
+static inline int zlist_push_back_##Name(zlist_##Name *l, T val)                    \
 {                                                                                   \
     zlist_node_##Name *n = (zlist_node_##Name*)                                     \
                             ZLIST_MALLOC(sizeof(zlist_node_##Name));                \
     if (!n)                                                                         \
     {                                                                               \
-        return Z_ERR;                                                               \
+            return Z_ENOMEM;                                                        \
     }                                                                               \
     n->value = val;                                                                 \
     n->next = NULL;                                                                 \
@@ -434,13 +511,13 @@ static inline int list_push_back_##Name(list_##Name *l, T val)                  
 }                                                                                   \
                                                                                     \
 /* Adds an element to the front of the list (O(1)). */                              \
-static inline int list_push_front_##Name(list_##Name *l, T val)                     \
+static inline int zlist_push_front_##Name(zlist_##Name *l, T val)                   \
 {                                                                                   \
     zlist_node_##Name *n = (zlist_node_##Name*)                                     \
                             ZLIST_MALLOC(sizeof(zlist_node_##Name));                \
     if (!n)                                                                         \
     {                                                                               \
-        return Z_ERR;                                                               \
+            return Z_ENOMEM;                                                        \
     }                                                                               \
     n->value = val;                                                                 \
     n->next = l->head;                                                              \
@@ -459,18 +536,18 @@ static inline int list_push_front_##Name(list_##Name *l, T val)                 
 }                                                                                   \
                                                                                     \
 /* Inserts an element after a specific node (O(1)). */                              \
-static inline int list_insert_after_##Name(list_##Name *l,                          \
+static inline int zlist_insert_after_##Name(zlist_##Name *l,                        \
     zlist_node_##Name *prev_node, T val)                                            \
-    {                                                                               \
+{                                                                                   \
     if (!prev_node)                                                                 \
     {                                                                               \
-        return list_push_front_##Name(l, val);                                      \
+        return zlist_push_front_##Name(l, val);                                     \
     }                                                                               \
     zlist_node_##Name *n = (zlist_node_##Name*)                                     \
                             ZLIST_MALLOC(sizeof(zlist_node_##Name));                \
     if (!n)                                                                         \
     {                                                                               \
-        return Z_ERR;                                                               \
+        return Z_ENOMEM;                                                            \
     }                                                                               \
     n->value = val;                                                                 \
     n->prev = prev_node;                                                            \
@@ -489,7 +566,7 @@ static inline int list_insert_after_##Name(list_##Name *l,                      
 }                                                                                   \
                                                                                     \
 /* Removes the last element (O(1)). */                                              \
-static inline void list_pop_back_##Name(list_##Name *l)                             \
+static inline void zlist_pop_back_##Name(zlist_##Name *l)                           \
 {                                                                                   \
     if (!l->tail)                                                                   \
     {                                                                               \
@@ -510,7 +587,7 @@ static inline void list_pop_back_##Name(list_##Name *l)                         
 }                                                                                   \
                                                                                     \
 /* Removes the first element (O(1)). */                                             \
-static inline void list_pop_front_##Name(list_##Name *l)                            \
+static inline void zlist_pop_front_##Name(zlist_##Name *l)                          \
 {                                                                                   \
     if (!l->head)                                                                   \
     {                                                                               \
@@ -531,7 +608,7 @@ static inline void list_pop_front_##Name(list_##Name *l)                        
 }                                                                                   \
                                                                                     \
 /* Removes an arbitrary node (O(1)). */                                             \
-static inline void list_remove_node_##Name(list_##Name *l, zlist_node_##Name *n)    \
+static inline void zlist_remove_node_##Name(zlist_##Name *l, zlist_node_##Name *n)  \
 {                                                                                   \
     if (!n)                                                                         \
     {                                                                               \
@@ -558,7 +635,7 @@ static inline void list_remove_node_##Name(list_##Name *l, zlist_node_##Name *n)
 }                                                                                   \
                                                                                     \
 /* Frees all nodes in the list. */                                                  \
-static inline void list_clear_##Name(list_##Name *l)                                \
+static inline void zlist_clear_##Name(zlist_##Name *l)                              \
 {                                                                                   \
     zlist_node_##Name *curr = l->head;                                              \
     while (curr)                                                                    \
@@ -572,15 +649,11 @@ static inline void list_clear_##Name(list_##Name *l)                            
 }                                                                                   \
                                                                                     \
 /* Moves all nodes from src to dest (src becomes empty, O(1)). */                   \
-static inline void list_splice_##Name(list_##Name *dest, list_##Name *src)          \
+static inline void zlist_splice_##Name(zlist_##Name *dest, zlist_##Name *src)       \
 {                                                                                   \
-    if (dest == src)                                                                \
+    if (dest == src || !src->head)                                                  \
     {                                                                               \
-        return;                                                                     \
-    }                                                                               \
-    if (!src->head)                                                                 \
-    {                                                                               \
-        return;                                                                     \
+       return;                                                                      \
     }                                                                               \
     if (!dest->head)                                                                \
     {                                                                               \
@@ -597,8 +670,8 @@ static inline void list_splice_##Name(list_##Name *dest, list_##Name *src)      
     src->length = 0;                                                                \
 }                                                                                   \
                                                                                     \
-/* Returns node at index (O(N) - use only for debugging/small lists). */            \
-static inline zlist_node_##Name *list_at_##Name(list_##Name *l, size_t index)       \
+/* Returns node at index (O(N)). */                                                 \
+static inline zlist_node_##Name *zlist_at_##Name(zlist_##Name *l, size_t index)     \
 {                                                                                   \
     if (index >= l->length)                                                         \
     {                                                                               \
@@ -613,45 +686,58 @@ static inline zlist_node_##Name *list_at_##Name(list_##Name *l, size_t index)   
 }                                                                                   \
                                                                                     \
 /* Returns the head node. */                                                        \
-static inline zlist_node_##Name *list_head_##Name(list_##Name *l)                   \
+static inline zlist_node_##Name *zlist_head_##Name(zlist_##Name *l)                 \
 {                                                                                   \
     return l->head;                                                                 \
 }                                                                                   \
                                                                                     \
 /* Returns the tail node. */                                                        \
-static inline zlist_node_##Name *list_tail_##Name(list_##Name *l)                   \
+static inline zlist_node_##Name *zlist_tail_##Name(zlist_##Name *l)                 \
 {                                                                                   \
     return l->tail;                                                                 \
-}
+}                                                                                   \
+                                                                                    \
+/* Inject safe API. */                                                              \
+ZLIST_GEN_SAFE_IMPL(T, Name)
 
 // C Generic dispatch entries.
-#define L_PUSH_B_ENTRY(T, Name)   list_##Name*: list_push_back_##Name,
-#define L_PUSH_F_ENTRY(T, Name)   list_##Name*: list_push_front_##Name,
-#define L_INS_A_ENTRY(T, Name)    list_##Name*: list_insert_after_##Name,
-#define L_POP_B_ENTRY(T, Name)    list_##Name*: list_pop_back_##Name,
-#define L_POP_F_ENTRY(T, Name)    list_##Name*: list_pop_front_##Name,
-#define L_REM_N_ENTRY(T, Name)    list_##Name*: list_remove_node_##Name,
-#define L_CLEAR_ENTRY(T, Name)    list_##Name*: list_clear_##Name,
-#define L_SPLICE_ENTRY(T, Name)   list_##Name*: list_splice_##Name,
-#define L_HEAD_ENTRY(T, Name)     list_##Name*: list_head_##Name,
-#define L_TAIL_ENTRY(T, Name)     list_##Name*: list_tail_##Name,
-#define L_AT_ENTRY(T, Name)       list_##Name*: list_at_##Name,
+#define L_PUSH_B_ENTRY(T, Name)   zlist_##Name*: zlist_push_back_##Name,
+#define L_PUSH_F_ENTRY(T, Name)   zlist_##Name*: zlist_push_front_##Name,
+#define L_INS_A_ENTRY(T, Name)    zlist_##Name*: zlist_insert_after_##Name,
+#define L_POP_B_ENTRY(T, Name)    zlist_##Name*: zlist_pop_back_##Name,
+#define L_POP_F_ENTRY(T, Name)    zlist_##Name*: zlist_pop_front_##Name,
+#define L_REM_N_ENTRY(T, Name)    zlist_##Name*: zlist_remove_node_##Name,
+#define L_CLEAR_ENTRY(T, Name)    zlist_##Name*: zlist_clear_##Name,
+#define L_SPLICE_ENTRY(T, Name)   zlist_##Name*: zlist_splice_##Name,
+#define L_HEAD_ENTRY(T, Name)     zlist_##Name*: zlist_head_##Name,
+#define L_TAIL_ENTRY(T, Name)     zlist_##Name*: zlist_tail_##Name,
+#define L_AT_ENTRY(T, Name)       zlist_##Name*: zlist_at_##Name,
 
-#ifndef REGISTER_ZVEC_TYPES
+#if Z_HAS_ZERROR
+#   define L_PUSH_B_SAFE_ENTRY(T, Name)  zlist_##Name*: zlist_push_back_safe_##Name,
+#   define L_PUSH_F_SAFE_ENTRY(T, Name)  zlist_##Name*: zlist_push_front_safe_##Name,
+#   define L_POP_B_SAFE_ENTRY(T, Name)   zlist_##Name*: zlist_pop_back_safe_##Name,
+#   define L_POP_F_SAFE_ENTRY(T, Name)   zlist_##Name*: zlist_pop_front_safe_##Name,
+#   define L_FRONT_SAFE_ENTRY(T, Name)   zlist_##Name*: zlist_front_safe_##Name,
+#   define L_BACK_SAFE_ENTRY(T, Name)    zlist_##Name*: zlist_back_safe_##Name,
+#endif
+
+// Registry Loading.
+#ifndef REGISTER_ZLIST_TYPES
 #   if defined(__has_include) && __has_include("z_registry.h")
 #       include "z_registry.h"
 #   endif
 #endif
 
-#ifndef Z_AUTOGEN_LISTS
-#   define Z_AUTOGEN_LISTS(X)
-#endif
-
 #ifndef REGISTER_ZLIST_TYPES
-#   define REGISTER_Z_LISTTYPES(X)
+#   define REGISTER_ZLIST_TYPES(X)
 #endif
 
-// Combine all sources of types
+#ifndef Z_AUTOGEN_LISTS
+    #define Z_AUTOGEN_LISTS(X)
+#endif
+
+// Combine all sources of types.
 #define Z_ALL_LISTS(X)      \
     Z_AUTOGEN_LISTS(X)      \
     REGISTER_ZLIST_TYPES(X)
@@ -659,34 +745,87 @@ static inline zlist_node_##Name *list_tail_##Name(list_##Name *l)               
 // Execute the generator for all registered types.
 Z_ALL_LISTS(ZLIST_GENERATE_IMPL)
 
-// C API Macros (using _Generic).
-#define list_init(Name)           list_init_##Name()
+// C API macros (using _Generic).
+#define zlist_init(Name)         zlist_init_##Name()
 
-// Auto-cleanup extension (GCC/Clang).
 #if Z_HAS_CLEANUP
-#   define list_autofree(Name)  Z_CLEANUP(list_clear_##Name) list_##Name
+#   define zlist_autofree(Name)  Z_CLEANUP(zlist_clear_##Name) zlist_##Name
 #endif
 
-#define list_push_back(l, val)     _Generic((l),    Z_ALL_LISTS(L_PUSH_B_ENTRY)  default: 0)         (l, val)
-#define list_push_front(l, val)    _Generic((l),    Z_ALL_LISTS(L_PUSH_F_ENTRY)  default: 0)         (l, val)
-#define list_insert_after(l, n, v) _Generic((l),    Z_ALL_LISTS(L_INS_A_ENTRY)   default: 0)         (l, n, v)
-#define list_pop_back(l)           _Generic((l),    Z_ALL_LISTS(L_POP_B_ENTRY)   default: (void)0)   (l)
-#define list_pop_front(l)          _Generic((l),    Z_ALL_LISTS(L_POP_F_ENTRY)   default: (void)0)   (l)
-#define list_remove_node(l, n)     _Generic((l),    Z_ALL_LISTS(L_REM_N_ENTRY)   default: (void)0)   (l, n)
-#define list_clear(l)              _Generic((l),    Z_ALL_LISTS(L_CLEAR_ENTRY)   default: (void)0)   (l)
-#define list_splice(dst, src)      _Generic((dst),  Z_ALL_LISTS(L_SPLICE_ENTRY)  default: (void)0)   (dst, src)
-#define list_head(l)               _Generic((l),    Z_ALL_LISTS(L_HEAD_ENTRY)    default: (void*)0)  (l)
-#define list_tail(l)               _Generic((l),    Z_ALL_LISTS(L_TAIL_ENTRY)    default: (void*)0)  (l)
-#define list_at(l, idx)            _Generic((l),    Z_ALL_LISTS(L_AT_ENTRY)      default: (void*)0)  (l, idx)
+#define zlist_push_back(l, val)     _Generic((l),    Z_ALL_LISTS(L_PUSH_B_ENTRY)  default: 0)         (l, val)
+#define zlist_push_front(l, val)    _Generic((l),    Z_ALL_LISTS(L_PUSH_F_ENTRY)  default: 0)         (l, val)
+#define zlist_insert_after(l, n, v) _Generic((l),    Z_ALL_LISTS(L_INS_A_ENTRY)   default: 0)         (l, n, v)
+#define zlist_pop_back(l)           _Generic((l),    Z_ALL_LISTS(L_POP_B_ENTRY)   default: (void)0)   (l)
+#define zlist_pop_front(l)          _Generic((l),    Z_ALL_LISTS(L_POP_F_ENTRY)   default: (void)0)   (l)
+#define zlist_remove_node(l, n)     _Generic((l),    Z_ALL_LISTS(L_REM_N_ENTRY)   default: (void)0)   (l, n)
+#define zlist_clear(l)              _Generic((l),    Z_ALL_LISTS(L_CLEAR_ENTRY)   default: (void)0)   (l)
+#define zlist_splice(dst, src)      _Generic((dst),  Z_ALL_LISTS(L_SPLICE_ENTRY)  default: (void)0)   (dst, src)
+#define zlist_head(l)               _Generic((l),    Z_ALL_LISTS(L_HEAD_ENTRY)    default: (void*)0)  (l)
+#define zlist_tail(l)               _Generic((l),    Z_ALL_LISTS(L_TAIL_ENTRY)    default: (void*)0)  (l)
+#define zlist_at(l, idx)            _Generic((l),    Z_ALL_LISTS(L_AT_ENTRY)      default: (void*)0)  (l, idx)
 
-// Iteration helpers (C only).
-#define list_foreach(l, iter) \
+// Iteration helper (C only).
+#define zlist_foreach(l, iter) \
     for ((iter) = (l)->head; (iter) != NULL; (iter) = (iter)->next)
 
-#define list_foreach_safe(l, iter, safe_iter)                               \
+#define zlist_foreach_safe(l, iter, safe_iter)                              \
     for ((iter) = (l)->head, (safe_iter) = (iter) ? (iter)->next : NULL;    \
          (iter) != NULL;                                                    \
          (iter) = (safe_iter), (safe_iter) = (iter) ? (iter)->next : NULL)
+
+// Safe API macros (conditioned on zerror.h).
+#if Z_HAS_ZERROR
+    static inline zres zlist_err_dummy(void* v, ...) 
+    { 
+        return zres_err(zerr_create(-1, "Unknown List Type")); 
+    }
+
+#   define zlist_push_back_safe(l, val) \
+        _Generic((l), Z_ALL_LISTS(L_PUSH_B_SAFE_ENTRY) default: zlist_err_dummy)(l, val, __FILE__, __LINE__, __func__)
+
+#   define zlist_push_front_safe(l, val) \
+        _Generic((l), Z_ALL_LISTS(L_PUSH_F_SAFE_ENTRY) default: zlist_err_dummy)(l, val, __FILE__, __LINE__, __func__)
+
+#   define zlist_pop_back_safe(l) \
+        _Generic((l), Z_ALL_LISTS(L_POP_B_SAFE_ENTRY)  default: zlist_err_dummy)(l, __FILE__, __LINE__, __func__)
+
+#   define zlist_pop_front_safe(l) \
+        _Generic((l), Z_ALL_LISTS(L_POP_F_SAFE_ENTRY)  default: zlist_err_dummy)(l, __FILE__, __LINE__, __func__)
+
+#   define zlist_front_safe(l) \
+        _Generic((l), Z_ALL_LISTS(L_FRONT_SAFE_ENTRY)  default: zlist_err_dummy)(l, __FILE__, __LINE__, __func__)
+
+#   define zlist_back_safe(l) \
+        _Generic((l), Z_ALL_LISTS(L_BACK_SAFE_ENTRY)   default: zlist_err_dummy)(l, __FILE__, __LINE__, __func__)
+#endif
+
+// Optional short names.
+#ifdef ZLIST_SHORT_NAMES
+#   define list_init             zlist_init
+#   define list_autofree         zlist_autofree
+#   define list_push_back        zlist_push_back
+#   define list_push_front       zlist_push_front
+#   define list_insert_after     zlist_insert_after
+#   define list_pop_back         zlist_pop_back
+#   define list_pop_front        zlist_pop_front
+#   define list_remove_node      zlist_remove_node
+#   define list_clear            zlist_clear
+#   define list_splice           zlist_splice
+#   define list_head             zlist_head
+#   define list_tail             zlist_tail
+#   define list_at               zlist_at
+#   define list_foreach          zlist_foreach
+#   define list_foreach_safe     zlist_foreach_safe
+
+#   if Z_HAS_ZERROR
+#       define list_push_back_safe   zlist_push_back_safe
+#       define list_push_front_safe  zlist_push_front_safe
+#       define list_pop_back_safe    zlist_pop_back_safe
+#       define list_pop_front_safe   zlist_pop_front_safe
+#       define list_front_safe       zlist_front_safe
+#       define list_back_safe        zlist_back_safe
+#   endif
+#endif
 
 // C++ trait specialization.
 #ifdef __cplusplus
@@ -694,22 +833,22 @@ Z_ALL_LISTS(ZLIST_GENERATE_IMPL)
 
 namespace z_list
 {
-    #define ZLIST_CPP_TRAITS(T, Name)                                       \
-        template<> struct traits<T>                                         \
-        {                                                                   \
-            using list_type = list_##Name;                                  \
-            using node_type = zlist_node_##Name;                            \
-            static constexpr auto init = list_init_##Name;                  \
-            static constexpr auto push_back = list_push_back_##Name;        \
-            static constexpr auto push_front = list_push_front_##Name;      \
-            static constexpr auto insert_after = list_insert_after_##Name;  \
-            static constexpr auto pop_back = list_pop_back_##Name;          \
-            static constexpr auto pop_front = list_pop_front_##Name;        \
-            static constexpr auto remove_node = list_remove_node_##Name;    \
-            static constexpr auto clear = list_clear_##Name;                \
-            static constexpr auto splice = list_splice_##Name;              \
-            static constexpr auto head = list_head_##Name;                  \
-            static constexpr auto tail = list_tail_##Name;                  \
+    #define ZLIST_CPP_TRAITS(T, Name)                                           \
+        template<> struct traits<T>                                             \
+        {                                                                       \
+            using list_type = ::zlist_##Name;                                   \
+            using node_type = ::zlist_node_##Name;                              \
+            static constexpr auto init = ::zlist_init_##Name;                   \
+            static constexpr auto push_back = ::zlist_push_back_##Name;         \
+            static constexpr auto push_front = ::zlist_push_front_##Name;       \
+            static constexpr auto insert_after = ::zlist_insert_after_##Name;   \
+            static constexpr auto pop_back = ::zlist_pop_back_##Name;           \
+            static constexpr auto pop_front = ::zlist_pop_front_##Name;         \
+            static constexpr auto remove_node = ::zlist_remove_node_##Name;     \
+            static constexpr auto clear = ::zlist_clear_##Name;                 \
+            static constexpr auto splice = ::zlist_splice_##Name;               \
+            static constexpr auto head = ::zlist_head_##Name;                   \
+            static constexpr auto tail = ::zlist_tail_##Name;                   \
         };
 
     Z_ALL_LISTS(ZLIST_CPP_TRAITS)
