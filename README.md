@@ -1,116 +1,63 @@
+
 # zlist.h
 
-`zlist.h` provides generic doubly linked lists for C projects. Unlike typical C list implementations that rely on `void*` casting or intrusive node structures that break type safety, `zlist.h` uses C11 `_Generic` selection and X-Macros to generate fully typed, type-safe implementations for your specific data structures.
+**Type-Safe, Generic Doubly Linked List for C/C++.**
 
-It also includes a robust **C++11 wrapper**, allowing you to use it as a lightweight, drop-in list class (`z_list::list`) in mixed codebases while sharing the same underlying C implementation.
+`zlist.h` provides a generic, type-safe doubly linked list implementation for C without the overhead of `void*` casting or the complexity of manual intrusive structures. It uses C11 `_Generic` selection to generate fully typed implementations at compile time.
+
+It bridges the gap between C and C++ by offering a native C API and a zero-cost C++ wrapper (`z_list::list`) that shares the same underlying implementation.
 
 ## Features
 
-* **Type Safety**: Compiler errors if you try to push a `float` into a `list_int`.
-* **O(1) Operations**: Constant time insertions and deletions at both ends and at known node positions.
-* **Safe Iteration**: Includes `list_foreach_safe` to allow removing nodes while iterating without crashing.
-* **C++ Support**: Includes a full C++ class wrapper with RAII, iterators, and `std::list`-like API.
-* **Zero Boilerplate**: Use the **Z-Scanner** tool to automatically generate type registrations.
-* **Header Only**: No linking required.
-* **Memory Agnostic**: Supports custom allocators (Arenas, Pools, Debuggers).
-* **Zero Dependencies**: Only standard C headers used.
-
-## Quick Start (Automated)
-
-The easiest way to use `zlist.h` is with the **Z-Scanner** tool, which scans your code and handles the boilerplate for you.
+* **Type Safety:** Compile-time errors if you mix types (e.g., pushing `float` into `list_int`).
+* **O(1) Operations:** Constant time insertion and removal at both ends and at known positions.
+* **Bidirectional:** Full support for forward and backward traversal.
+* **Safe Iteration:** Dedicated macros (`zlist_foreach_safe`) allow removing nodes while iterating.
+* **C++ Interop:** A `z_list::list<T>` wrapper provides RAII, STL-compatible iterators, and range-based loops.
+* **Safe API:** Optional integration with `zerror.h` for robust error handling with stack traces.
 
 ## Installation
+
+### Manual
 
 `zlist.h` works best when you use the provided scanner script to manage type registrations, though it can be used manually.
 
 1.  Copy `zlist.h` (and `zcommon.h` if separated) to your project's include folder.
 2.  Add the `z-core` tools (optional but recommended):
-    ```bash
-    git submodule add [https://github.com/z-libs/z-core.git](https://github.com/z-libs/z-core.git) z-core
-    ```
+
+```bash
+git submodule add https://github.com/z-libs/z-core.git z-core
+```
+
+### Clib
+
+If you use the clib package manager, run:
+
+```bash
+clib install z-libs/zdk
+```
+
+### ZDK (Recommended)
+
+If you use the Zen Development Kit, it is included automatically by including `<zdk/zlist.h>` (or `<zdk/zworld.h>`).
 
 ## Usage: C
 
-You don't need a separate registry file. Just define the types you need right where you use them (or in your own headers).
+For C projects, you must register the list types you need. This can be done via the scanner script or manually via the Registry Header.
+
+### Manual Registration
+
+Create a header(for example,`types.h`) to define your lists using X-Macros.
 
 ```c
-#include <stdio.h>
-#include "zlist.h"
+#ifndef TYPES_H
+#define TYPES_H
 
-// Define your struct.
 typedef struct { float x, y; } Point;
 
-// Request the list types you need.
-DEFINE_LIST_TYPE(int, Int)
-DEFINE_LIST_TYPE(Point, Point)
-
-int main(void)
-{
-    list_Int nums = list_init(Int);
-    list_push_back(&nums, 42);
-
-    list_Point path = list_init(Point);
-    list_push_back(&path, ((Point){1.0f, 2.0f}));
-
-    printf("Head: %d\n", list_head(&nums)->value);
-    
-    list_clear(&nums);
-    list_clear(&path);
-    return 0;
-}
-```
-
-## Usage: C++
-
-The library detects C++ compilers automatically. The C++ wrapper lives in the **`z_list`** namespace.
-
-```cpp
-#include <iostream>
-#include "zlist.h"
-
-DEFINE_LIST_TYPE(int, Int)
-
-int main()
-{
-    // RAII handles memory automatically.
-    z_list::list<int> l = {1, 2, 3};
-
-    l.push_front(0);
-    l.push_back(4);
-
-    // Standard iterators (compatible with range-based for loops).
-    for (int n : l) 
-    {
-        std::cout << n << " ";
-    }
-    std::cout << "\n";
-
-    return 0;
-}
-```
-
-## Compilation Guide
-
-Since `zlist.h` relies on code generation for its type safety, here you have the guide if you use the scanner.
-
-**[Read the Compilation Guide](examples/README.md)** for detailed instructions on how to use `zscanner.py`.
-
-## Manual Setup
-
-If you cannot use Python or prefer manual control, you can use the **Registry Header** approach.
-
-* Create a file named `my_lists.h` (or something else).
-* Register your types using X-Macros.
-
-```c
-#ifndef MY_LISTS_H
-#define MY_LISTS_H
-
-typedef struct { float x; } Point;
-
-// **IT HAS TO BE INCLUDED AFTER, NOT BEFORE**.
-#define REGISTER_TYPES(X) \
-    X(int, Int)           \
+// Syntax: X(ValueType, ShortName).
+#define REGISTER_ZLIST_TYPES(X) \
+    X(int, Int)                 \
     X(Point, Point)
 
 #include "zlist.h"
@@ -118,168 +65,172 @@ typedef struct { float x; } Point;
 #endif
 ```
 
-* Include `"my_lists.h"` instead of `"zlist.h"` in your C files.
+### Basic Operations
 
-## API Reference
+```c
+#include "types.h"
+#include <stdio.h>
 
-`zlist.h` uses C11 `_Generic` to automatically select the correct function implementation based on the list type you pass.
+int main(void)
+{
+    // Initialize.
+    zlist_Int nums = zlist_init(Int);
 
-**Initialization & Management**
+    // O(1) Insertions (Returns Z_OK or Z_ENOMEM).
+    zlist_push_back(&nums, 10);
+    zlist_push_front(&nums, 5);
+
+    // Iteration.
+    zlist_node_Int *it;
+    zlist_foreach(&nums, it)
+    {
+        printf("%d ", it->value);
+    }
+        
+    // Cleanup.
+    zlist_clear(&nums);
+    return 0;
+}
+```
+
+### Short Names
+
+If you prefer a cleaner API and don't worry about namespace collisions, define `ZLIST_SHORT_NAMES` before including the header.
+
+```c
+#define ZLIST_SHORT_NAMES
+#include "zlist.h"
+
+// Now you can use:
+list(Int) l = list_init(Int);
+list_push_back(&l, 10);
+list_foreach(&l, it) { ... }
+```
+## Usage: C++
+
+The C++ wrapper `z_list::list` is a zero-overhead abstraction. It uses the same generated C code under the hood but adds RAII and iterators.
+
+```c
+#include <iostream>
+
+// Register types (visible to C++ compiler).
+#define REGISTER_ZLIST_TYPES(X) \
+    X(int, Int)
+
+#include "zlist.h"
+
+int main()
+{
+    // RAII handles memory automatically.
+    z_list::list<int> numbers = {1, 2, 3};
+
+    numbers.push_front(0);
+    numbers.push_back(4);
+
+    // STL-compatible Iterators (Range-based for loop).
+    for (int n : numbers)
+    {
+        std::cout << n << " ";
+    }
+        
+    return 0;
+}
+```
+
+## Safe API (`zerror` Integration)
+
+If `zerror.h` is present, `zlist` generates "Safe" versions of critical functions. These functions return `zres` (Result) types containing error information and stack traces on failure.
+
+| Operation | Standard API | Safe API | Return Type |
+| :--- | :--- | :--- | :--- |
+| **Push Back** | `zlist_push_back` | `zlist_push_back_safe` | `zres` (Void Result) |
+| **Front** | `zlist_head` (returns ptr) | `zlist_front_safe` | `Result<T>` |
+
+**Example:**
+
+```c
+zres res = zlist_push_back_safe(&list, 100);
+if (zres_is_err(res))
+{
+    // Handle OOM with stack trace.
+}
+```
+
+## API Reference (C)
+
+The library uses `_Generic` dispatch, so the same macro names work for all registered list types.
+
+**Management**
 
 | Macro | Description |
 | :--- | :--- |
-| `list_init(Name)` | Returns an empty list structure `{0}`. |
-| `list_clear(l)` | Frees every node in the list and resets head/tail to `NULL`. |
-| `list_splice(dest, src)` | Moves all nodes from `src` to the end of `dest` in O(1) time. `src` becomes empty. |
-
-**Data Access**
-
-| Macro | Description |
-| :--- | :--- |
-| `list_head(l)` | Returns a pointer to the first **node**, or `NULL` if empty. |
-| `list_tail(l)` | Returns a pointer to the last **node**, or `NULL` if empty. |
-| `list_at(l, index)` | Returns a pointer to the **node** at `index` (O(N) traversal), or `NULL`. |
+| `zlist_init(Name)` | Initialize an empty list. |
+| `zlist_clear(l)` | Free all nodes and reset list. |
+| `zlist_splice(dest, src)` | Move all nodes from `src` to end of `dest`. O(1). |
+| `zlist_autofree(Name)` | (GCC/Clang) Auto-cleanup variable. |
 
 **Modification**
 
 | Macro | Description |
 | :--- | :--- |
-| `list_push_back(l, val)` | Allocates a new node with `val` and appends it to the tail. Returns `0` on success. |
-| `list_push_front(l, val)` | Allocates a new node with `val` and prepends it to the head. Returns `0` on success. |
-| `list_pop_back(l)` | Removes and frees the tail node. Does nothing if empty. |
-| `list_pop_front(l)` | Removes and frees the head node. Does nothing if empty. |
-| `list_insert_after(l, n, val)`| Allocates a new node with `val` and inserts it immediately after node `n`. |
-| `list_remove_node(l, n)` | Unlinks and frees the specific node `n`. `n` must belong to list `l`. |
+| `zlist_push_back(l, val)` | Append to tail. Returns `Z_OK`/`Z_ENOMEM`. |
+| `zlist_push_front(l, val)` | Prepend to head. Returns `Z_OK`/`Z_ENOMEM`. |
+| `zlist_pop_back(l)` | Remove tail node. |
+| `zlist_pop_front(l)` | Remove head node. |
+| `zlist_insert_after(l, n, v)` | Insert `v` after node `n`. |
+| `zlist_remove_node(l, n)` | Unlink and free specific node `n`. |
+
+**Access**
+
+| Macro | Description |
+| :--- | :--- |
+| `zlist_head(l)` | Returns pointer to first node (`zlist_node_Name*`). |
+| `zlist_tail(l)` | Returns pointer to last node. |
+| `zlist_at(l, idx)` | Returns pointer to node at index (O(N) scan). |
 
 **Iteration**
 
 | Macro | Description |
 | :--- | :--- |
-| `list_foreach(l, iter)` | Standard loop helper. `iter` is a node pointer variable; it traverses from head to tail. |
-| `list_foreach_safe(l, iter, safe)` | Safe loop helper. Requires two node pointers (`iter`, `safe`). Allows you to call `list_remove_node(l, iter)` inside the loop body without breaking the iterator. |
-
-**Extensions (Experimental)**
-
-If you are using a compiler that supports `__attribute__((cleanup))` (like GCC or Clang), you can use the **Auto-Cleanup** extension to automatically free lists when they go out of scope.
-
-| Macro | Description |
-| :--- | :--- |
-| `list_autofree(Type)` | Declares a list that automatically calls `list_clear` (freeing all nodes) when the variable leaves scope (RAII style). |
-
-**Example:**
-```c
-void process_queue() {
-    // 'queue' nodes will be automatically freed when this function returns.
-    list_autofree(int) queue = list_init(int);
-    list_push_back(&queue, 100);
-}
-```
-
-> **Disable Extensions:** To force standard compliance and disable these extensions, define `Z_NO_EXTENSIONS` before including the library.
+| `zlist_foreach(l, it)` | Standard traversal loop. `it` is updated. |
+| `zlist_foreach_safe(l, it, tmp)` | Safe traversal. Allows removing `it` during loop. Requires extra temp pointer. |
 
 ## API Reference (C++)
 
-The C++ wrapper lives in the **`z_list`** namespace. It strictly adheres to RAII principles and delegates all logic to the underlying C implementation.
+The C++ wrapper lives in the `z_list` namespace.
 
-### `class z_list::list<T>`
+### class z_list::list<T>
 
 **Constructors & Management**
 
 | Method | Description |
 | :--- | :--- |
-| `list()` | Default constructor (empty). |
-| `list({1, 2, ...})` | Constructs from an initializer list. |
-| `~list()` | Destructor. Automatically calls `list_clear` to free nodes. |
-| `operator=` | Copy and Move assignment operators. |
+| `list()` | Default constructor. |
+| `~list()` | Destructor. Calls `zlist_clear`. |
+| `size()` | Returns number of nodes. |
+| `empty()` | Returns `true` if empty. |
+| `clear()` | Frees all nodes. |
+| `splice(other)` | Moves nodes from `other` list to this one. |
 
-**Access & Iterators**
-
-| Method | Description |
-| :--- | :--- |
-| `size()` | Returns current number of nodes. |
-| `empty()` | Returns `true` if size is 0. |
-| `front()`, `back()` | Returns reference to the first/last value. Throws `std::out_of_range` if empty. |
-| `begin()`, `end()` | Standard bidirectional iterators compatible with STL algorithms. |
-
-**Modification**
+**Access & Modification**
 
 | Method | Description |
 | :--- | :--- |
-| `push_back(val)` | Appends value to the end. |
-| `push_front(val)` | Prepends value to the front. |
-| `pop_back()` | Removes the last node. |
-| `pop_front()` | Removes the first node. |
-| `insert_after(it, val)` | Inserts `val` *after* the iterator position. |
-| `erase(it)` | Removes the node at the iterator position. Returns iterator to next node. |
-| `splice(other)` | Moves all nodes from `other` list to the end of this list. |
-| `clear()` | Removes and frees all nodes. |
+| `front()`, `back()` | Access first/last element. Throws `out_of_range`. |
+| `push_back(v)` | Append value. Throws `bad_alloc` on failure. |
+| `push_front(v)` | Prepend value. |
+| `pop_back()`, `pop_front()` | Remove elements. |
+| `erase(it)` | Remove element at iterator. Returns next iterator. |
 
-## Memory Management
+## Configuration
 
-By default, `zlist.h` uses the standard C library functions (`malloc`, `calloc`, `realloc`, `free`).
-
-However, you can override these to use your own memory subsystem (e.g., **Memory Arenas**, **Pools**, or **Debug Allocators**).
-
-### First Option: Global Override (Recommended)
-
-To use a custom allocator, define the `Z_` macros **inside your registry header**, immediately before including `zlist.h`.
-
-**Example: my_lists.h**
+### Memory Management
+You can override the memory allocators globally or specifically for lists.
 
 ```c
-#ifndef MY_LISTS_H
-#define MY_LISTS_H
-
-// Define your custom memory macros **HERE**.
-#include "my_memory_system.h"
-
-// IMPORTANT: Override all four to prevent mixing allocators.
-//            This applies to all the z-libs.
-#define Z_MALLOC(sz)      my_custom_alloc(sz)
-#define Z_CALLOC(n, sz)   my_custom_calloc(n, sz)
-#define Z_REALLOC(p, sz)  my_custom_realloc(p, sz)
-#define Z_FREE(p)         my_custom_free(p)
-
-
-// Then include the library.
-#include "zlist.h"
-
-// ... Register types ...
-
-
-#endif
+// Global Override
+#define ZLIST_MALLOC  my_malloc
+#define ZLIST_FREE    my_free
+#define ZLIST_REALLOC my_realloc
+#define ZLIST_CALLOC  my_calloc
 ```
-
-> **Note:** You **must** override **all four macros** (`MALLOC`, `CALLOC`, `REALLOC`, `FREE`) if you override one, to ensure consistency.
-
-### Second Option: Library-Specific Override (Advanced)
-
-If you need different allocators for different containers (e.g., an Arena for Lists but the Heap for Vectors), you can use the library-specific macros. These take priority over the global `Z_` macros.
-
-```c
-// Example: Lists use an Arena, everything else uses standard malloc.
-#define Z_LIST_MALLOC(sz)    arena_alloc(my_arena, sz)
-#define Z_LIST_FREE(p)       /* no-op for linear arena */
-
-#include "zlist.h"
-#include "zvec.h" // zvec will still use standard malloc!
-```
-
-## Notes
-
-### Why do I need to provide a "Short Name"?
-
-In `REGISTER_TYPES(X)`, you must provide two arguments: the **Actual Type** and a **Short Name**.
-
-```c
-//     Actual Type    Short Name
-X(struct Point,         Point)
-```
-
-The reason is that C macros cannot handle spaces when generating names. The library tries to create structs and functions by gluing `list_` + `Name`.
-
-If you used `struct Point` as the name, the macro would try to generate `list_struct Point`, which is a syntax error. By passing `Point`, it correctly generates `list_Point` and `zlist_node_Point`.
-
-### Why `list_clear`?
-
-Unlike vectors, which free a single buffer, lists must walk the chain and free every node individually. The `list_autofree` macro automatically calls `list_clear`, ensuring O(N) cleanup happens implicitly so you don't leak nodes.
