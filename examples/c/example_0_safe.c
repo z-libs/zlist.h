@@ -12,7 +12,7 @@
 
 zres process_numbers(void)
 {
-    zlist_autofree(Int) nums = list_init(Int);
+    list_autofree(Int) nums = list_init(Int);
 
     check_ctx(list_push_back_safe(&nums, 100), "Failed to push 100");
     check_ctx(list_push_back_safe(&nums, 200), "Failed to push 200");
@@ -46,3 +46,4 @@ int main(void)
 {
     return run(process_numbers());
 }
+

@@ -1,8 +1,7 @@
+
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
-
-// --- Domain Logic -----------------------------------------------------------
 
 typedef struct 
 {
@@ -18,23 +17,18 @@ Job make_job(int id, const char* name)
     return j;
 }
 
-// --- Library Registration ---------------------------------------------------
-
 #define REGISTER_ZLIST_TYPES(X) \
     X(Job, Job)
 
 #define ZLIST_SHORT_NAMES
 #include "zlist.h"
 
-// --- Main Application -------------------------------------------------------
-
 int main(void) 
 {
-    // BEAUTIFUL SYNTAX:
     list(Job) queue      = list_init(Job);
     list(Job) quarantine = list_init(Job);
 
-    printf("--- 1. Enqueuing Tasks ---\n");
+    printf("=> Enqueuing tasks.\n");
     
     list_push_back(&queue, make_job(101, "Resize Images"));
     list_push_back(&queue, make_job(102, "Send Emails"));
@@ -43,12 +37,10 @@ int main(void)
     printf("[!] Urgent task received: Database Backup\n");
     list_push_front(&queue, make_job(999, "DB Backup"));
 
-    printf("\n--- 2. Processing Queue ---\n");
+    printf("\n=> Processing queue.\n");
     
     while (!list_is_empty(&queue)) 
     {
-        // For node pointers, we still use the specific type for clarity/safety,
-        // though we could macro this too if we really wanted.
         zlist_node_Job* current_node = list_head(&queue);
         Job* j = &current_node->value;
 
@@ -71,7 +63,7 @@ int main(void)
         }
     }
 
-    printf("\n--- 3. Quarantine Review ---\n");
+    printf("\n=> Quarantine review.\n");
     
     if (list_is_empty(&quarantine)) 
     {
@@ -79,7 +71,6 @@ int main(void)
     } 
     else 
     {
-        zlist_node_Job *it;
         list_foreach(&quarantine, it) 
         {
             printf("Quarantined: %s (Retries: %d)\n", it->value.name, it->value.retries);

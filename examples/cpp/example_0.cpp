@@ -1,8 +1,10 @@
 
 #include <iostream>
-#include "zlist.h"
 
-DEFINE_LIST_TYPE(int, Int)
+#define REGISTER_ZLIST_TYPES(X) \
+    X(int, Int)
+
+#include "zlist.h"
 
 int main()
 {

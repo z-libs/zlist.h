@@ -6,6 +6,7 @@ typedef struct
     float x, y;
 } Point; 
 
+#define ZLIST_SHORT_NAMES
 #include "zlist.h"
 
 DEFINE_LIST_TYPE(int, Int)
@@ -13,7 +14,7 @@ DEFINE_LIST_TYPE(Point, Point)
 
 int main(void) 
 {
-    list_Int nums = list_init(Int);
+    list(Int) nums = list_init(Int);
 
     list_push_back(&nums, 10);
     list_push_back(&nums, 20);
@@ -21,14 +22,13 @@ int main(void)
 
     printf("Integers: ");
     
-    zlist_node_Int *iter; 
     list_foreach(&nums, iter)
     {
         printf("%d ", iter->value);
     }
     printf("\n");
 
-    list_Point points = list_init(Point);
+    list(Point) points = list_init(Point);
 
     list_push_back(&points, ((Point){1.5f, 2.5f}));
     list_push_back(&points, ((Point){3.0f, 4.0f}));
@@ -46,7 +46,6 @@ int main(void)
     }
 
     printf("Clearing points...\n");
-    zlist_node_Point *curr, *safe;
     list_foreach_safe(&points, curr, safe) 
     {
         printf("Removing {%.1f, %.1f}\n", curr->value.x, curr->value.y);
