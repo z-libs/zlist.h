@@ -193,12 +193,18 @@ The library uses `_Generic` dispatch, so the same macro names work for all regis
 
 **Iteration**
 
+`zlist.h` provides two sets of iteration macros: "Smart" macros that attempt to auto-declare variables (on supported compilers), and "Explicit" macros that always declare variables portably by taking the type name.
+
 | Macro | Description |
 | :--- | :--- |
-| `zlist_foreach(l, it)` | Standard traversal loop. `it` is updated. |
-| `zlist_foreach_safe(l, it, tmp)` | Safe traversal. Allows removing `it` during loop. |
-| `zlist_foreach_rev(l, it)` | Iterate from tail to head (Reverse). |
-| `zlist_foreach_rev_safe(l, it, tmp)` | Safe reverse traversal. |
+| `zlist_foreach(l, it)` | Forward iteration. **GCC/Clang**: Auto-declares `it`. **Std C**: `it` must be declared before. |
+| `zlist_foreach_safe(l, it, tmp)` | Safe forward iteration (allows removal). **GCC/Clang**: Auto-declares `it`, `tmp`. **Std C**: Pre-declare variables. |
+| `zlist_foreach_rev(l, it)` | Reverse iteration (tail to head). Same auto-declaration rules as above. |
+| `zlist_foreach_rev_safe(l, it, tmp)` | Safe reverse iteration. Same auto-declaration rules as above. |
+| `zlist_foreach_decl(Name, l, it)` | **Portable C99**. Forward iteration. Declares `it` as `zlist_node_Name*` inside the loop. |
+| `zlist_foreach_safe_decl(Name, l, it, tmp)` | **Portable C99**. Safe forward iteration. Declares both `it` and `tmp` inside the loop. |
+| `zlist_foreach_rev_decl(Name, l, it)` | **Portable C99**. Reverse iteration. Declares `it` inside the loop. |
+| `zlist_foreach_rev_safe_decl(Name, l, it, tmp)` | **Portable C99**. Safe reverse iteration. Declares variables inside the loop. |
 
 ## API Reference (C++)
 
