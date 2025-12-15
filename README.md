@@ -169,6 +169,15 @@ The library uses `_Generic` dispatch, so the same macro names work for all regis
 | `zlist_splice(dest, src)` | Move all nodes from `src` to end of `dest`. O(1). |
 | `zlist_autofree(Name)` | (GCC/Clang) Auto-cleanup variable. |
 
+**Access & State**
+
+| Macro | Description |
+| :--- | :--- |
+| `zlist_is_empty(l)` | Returns `true` if list contains no nodes. O(1). |
+| `zlist_head(l)` | Returns pointer to first node (`zlist_node_Name*`). |
+| `zlist_tail(l)` | Returns pointer to last node. |
+| `zlist_at(l, idx)` | Returns pointer to node at index (O(N) scan). |
+
 **Modification**
 
 | Macro | Description |
@@ -179,21 +188,17 @@ The library uses `_Generic` dispatch, so the same macro names work for all regis
 | `zlist_pop_front(l)` | Remove head node. |
 | `zlist_insert_after(l, n, v)` | Insert `v` after node `n`. |
 | `zlist_remove_node(l, n)` | Unlink and free specific node `n`. |
-
-**Access**
-
-| Macro | Description |
-| :--- | :--- |
-| `zlist_head(l)` | Returns pointer to first node (`zlist_node_Name*`). |
-| `zlist_tail(l)` | Returns pointer to last node. |
-| `zlist_at(l, idx)` | Returns pointer to node at index (O(N) scan). |
+| `zlist_detach_node(l, n)` | Unlink node `n` **without** freeing. Returns `n`. |
+| `zlist_reverse(l)` | Reverses the list in-place. O(N). |
 
 **Iteration**
 
 | Macro | Description |
 | :--- | :--- |
 | `zlist_foreach(l, it)` | Standard traversal loop. `it` is updated. |
-| `zlist_foreach_safe(l, it, tmp)` | Safe traversal. Allows removing `it` during loop. Requires extra temp pointer. |
+| `zlist_foreach_safe(l, it, tmp)` | Safe traversal. Allows removing `it` during loop. |
+| `zlist_foreach_rev(l, it)` | Iterate from tail to head (Reverse). |
+| `zlist_foreach_rev_safe(l, it, tmp)` | Safe reverse traversal. |
 
 ## API Reference (C++)
 
@@ -221,6 +226,7 @@ The C++ wrapper lives in the `z_list` namespace.
 | `push_front(v)` | Prepend value. |
 | `pop_back()`, `pop_front()` | Remove elements. |
 | `erase(it)` | Remove element at iterator. Returns next iterator. |
+| `reverse()` | Reverses the list in-place. |
 
 ## Configuration
 
