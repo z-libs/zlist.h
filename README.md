@@ -22,7 +22,7 @@ It bridges the gap between C and C++ by offering a native C API and a zero-cost 
 
 `zlist.h` works best when you use the provided scanner script to manage type registrations, though it can be used manually.
 
-1.  Copy `zlist.h` (and `zcommon.h` if separated) to your project's include folder.
+1.  Copy `zlist.h` to your project's include folder.
 2.  Add the `z-core` tools (optional but recommended):
 
 ```bash
