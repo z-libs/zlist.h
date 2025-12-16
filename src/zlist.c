@@ -18,7 +18,7 @@
  * License: MIT
  * Author: Zuhaitz
  * Repository: https://github.com/z-libs/zlist.h
- * Version: 1.2.0 (Refactored for C++ complex types)
+ * Version: 1.2.0
  */
 
 #ifndef ZLIST_H
