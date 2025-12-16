@@ -812,6 +812,7 @@ Z_ALL_LISTS(ZLIST_GENERATE_IMPL)
 // Optional short names.
 #ifdef ZLIST_SHORT_NAMES
 #   define list(Name)                   zlist_##Name
+#   define list_node(Name)              zlist_node_##Name
 #   define list_init                    zlist_init
 #   define list_autofree                zlist_autofree
 #   define list_push_back               zlist_push_back

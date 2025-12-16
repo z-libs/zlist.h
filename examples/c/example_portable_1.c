@@ -22,7 +22,8 @@ int main(void)
     list_push_back(&nums, 30);
 
     printf("Integers: ");
-    
+   
+    list_node(Int) *iter;
     list_foreach(&nums, iter)
     {
         printf("%d ", iter->value);
@@ -47,6 +48,8 @@ int main(void)
     }
 
     printf("Clearing points...\n");
+    list_node(Point) *curr;
+    list_node(Point) *safe;
     list_foreach_safe(&points, curr, safe) 
     {
         printf("Removing {%.1f, %.1f}\n", curr->value.x, curr->value.y);

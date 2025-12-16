@@ -1,13 +1,13 @@
 
 #include <stdio.h>
 
-typedef struct
+typedef struct 
 {
     float x, y;
-} Point; 
+} Point;
 
-#define Z_AUTOGEN_LISTS(X)  \
-    X(int, Int)             \
+#define Z_AUTOGEN_LISTS(X) \
+    X(int, Int) \
     X(Point, Point)
 
 #define ZLIST_SHORT_NAMES
@@ -22,8 +22,9 @@ int main(void)
     list_push_back(&nums, 30);
 
     printf("Integers: ");
-    
-    list_foreach(&nums, iter)
+   
+    list_node(Int) *iter;
+    list_foreach(&nums, iter) 
     {
         printf("%d ", iter->value);
     }
@@ -35,18 +36,12 @@ int main(void)
     list_push_back(&points, ((Point){3.0f, 4.0f}));
 
     list_node(Point) *n0 = list_at(&points, 0);
-    if (n0) 
-    {
-        printf("Point 0: {x: %.1f, y: %.1f}\n", n0->value.x, n0->value.y);
-    }
-
-    list_node(Point) *n1 = list_at(&points, 1);
-    if (n1) 
-    {
-        printf("Point 1: {x: %.1f, y: %.1f}\n", n1->value.x, n1->value.y);
-    }
+    if (n0) printf("Point 0: {x: %.1f, y: %.1f}\n", n0->value.x, n0->value.y);
 
     printf("Clearing points...\n");
+   
+    list_node(Point) *curr;
+    list_node(Point) *safe;
     list_foreach_safe(&points, curr, safe) 
     {
         printf("Removing {%.1f, %.1f}\n", curr->value.x, curr->value.y);
@@ -55,6 +50,6 @@ int main(void)
 
     list_clear(&nums);
     list_clear(&points); 
-
+   
     return 0;
 }

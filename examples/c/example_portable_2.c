@@ -71,6 +71,7 @@ int main(void)
     } 
     else 
     {
+        list_node(Job) *it;
         list_foreach(&quarantine, it) 
         {
             printf("Quarantined: %s (Retries: %d)\n", it->value.name, it->value.retries);
