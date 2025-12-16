@@ -126,7 +126,6 @@ void test_algorithms(void)
 
     // zlist_foreach.
     int sum = 0;
-    zlist_node_Int* it;
     zlist_foreach(&list, it) 
     {
         sum += it->value;

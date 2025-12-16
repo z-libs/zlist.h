@@ -4,6 +4,7 @@
 #include <cassert>
 #include <stdexcept>
 #include <iterator>
+#include <string>
 
 struct Vec2 
 { 
@@ -15,9 +16,11 @@ struct Vec2
     }
 };
 
+// Registered 'std::string' to verify memory management (RAII)
 #define REGISTER_ZLIST_TYPES(X) \
     X(int, Int)                 \
-    X(Vec2, Vec2)
+    X(Vec2, Vec2)               \
+    X(std::string, String)
 
 #include "zlist.h"
 
@@ -98,7 +101,6 @@ void test_stl_interop()
     assert(std::distance(l.begin(), it) == 2);
 
     // Reverse iteration.
-    // (rbegin/rend usually requires extra adapter, but we can test decrement).
     auto bit = l.end();
     bit--;
     assert(*bit == 50);
@@ -186,6 +188,35 @@ void test_const_correctness()
     PASS();
 }
 
+void test_complex_types()
+{
+    TEST("Complex Types (std::string Safety)");
+
+    z_list::list<std::string> l;
+    
+    // Use a string long enough to force heap allocation to test deep copies.
+    std::string s = "This string is long enough to force heap allocation, verifying memory safety.";
+
+    // Push element (construct/assign).
+    l.push_back(s);
+    assert(l.front() == s);
+    assert(l.size() == 1);
+
+    // Push front (verify no corruption).
+    l.push_front("Short");
+    assert(l.front() == "Short");
+    assert(l.back() == s);
+    
+    // Pop (destruct).
+    l.pop_front();
+    assert(l.front() == s);
+    
+    l.pop_back();
+    assert(l.empty());
+
+    PASS();
+}
+
 int main() 
 {
     std::cout << "=> Running tests (zlist.h, cpp).\n";
@@ -196,8 +227,8 @@ int main()
     test_access_modifiers();
     test_splice();
     test_const_correctness();
+    test_complex_types();
 
     std::cout << "=> All tests passed successfully.\n";
     return 0;
 }
-

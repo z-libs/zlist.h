@@ -25,7 +25,7 @@ clean:
 init:
 	git submodule update --init --recursive
 
-test: bundle test_c test_cpp clean
+test: get_zerror_h bundle test_c test_cpp clean
 
 test_c:
 	@echo "----------------------------------------"
